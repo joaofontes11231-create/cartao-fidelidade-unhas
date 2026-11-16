@@ -37,6 +37,8 @@
     </div>
 
     <script>
+        let telefoneClienteAtual = "";
+
         async function gerarCartao() {
             const nome = document.getElementById('nome-input').value.trim();
             const telefone = document.getElementById('tel-input').value.trim();
@@ -45,6 +47,9 @@
                 alert('Por favor, preencha o nome e o telefone!');
                 return;
             }
+
+            // Guarda o telefone para a atualização automática
+            telefoneClienteAtual = telefone;
 
             // Envia para o servidor para cadastrar ou buscar
             const res = await fetch('/api/cadastrar', {
@@ -69,9 +74,12 @@
                 width: 180,
                 height: 180
             });
+
+            // Inicia o rastreio automático em tempo real a cada 2 segundos
+            iniciarAtualizacaoAutomatica();
         }
 
-      function atualizarVisualCartao(data) {
+        function atualizarVisualCartao(data) {
             let html = '';
             for (let i = 0; i < data.maxCoracoes; i++) {
                 if (i < data.coracoes) {
@@ -88,6 +96,24 @@
                 const faltam = data.maxCoracoes - data.coracoes;
                 document.getElementById('status-premio').innerText = `Faltam ${faltam} corações para o prêmio.`;
             }
+        }
+
+        // Função de atualização automática correta (fora de tudo)
+        function iniciarAtualizacaoAutomatica() {
+            if (!telefoneClienteAtual) return;
+
+            setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/cliente/${telefoneClienteAtual}`);
+                    const data = await res.json();
+                    
+                    if (data && data.coracoes !== undefined) {
+                        atualizarVisualCartao(data);
+                    }
+                } catch (e) {
+                    console.log("Aguardando atualização...");
+                }
+            }, 2000); // Consulta o servidor a cada 2 segundos
         }
     </script>
 </body>
