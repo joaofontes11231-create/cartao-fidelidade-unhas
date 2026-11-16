@@ -34,6 +34,10 @@
             <h3 id="info-nome"></h3>
             <p>Telefone: <span id="info-tel"></span></p>
             <p>Corações: <span id="qtd-coracoes" style="font-size: 28px; font-weight: bold; color: #ff3366;">0</span></p>
+            
+            <!-- Grid visual dos corações -->
+            <div id="grid-coracoes-admin" style="margin: 15px 0; font-size: 24px;"></div>
+
             <button onclick="alterarCoracao('adicionar')" style="background: #4CAF50; color: white;">➕ Dar Coração</button>
             <button onclick="alterarCoracao('remover')" style="background: #f44336; color: white;">➖ Remover</button>
             <br><br>
@@ -82,6 +86,10 @@
             document.getElementById('info-nome').innerText = `Cliente: ${data.nome || 'Cliente'}`;
             document.getElementById('info-tel').innerText = data.telefone;
             document.getElementById('qtd-coracoes').innerText = data.coracoes;
+            
+            // Atualiza também os corações visuais ao carregar o cliente
+            atualizarVisualAdmin(data.coracoes, data.maxCoracoes || 10);
+
             document.getElementById('reader').style.display = 'none';
             document.getElementById('painel-cliente').style.display = 'block';
         }
@@ -93,7 +101,29 @@
                 body: JSON.stringify({ telefone: telefoneAtual, acao })
             });
             const data = await res.json();
+            
+            // Atualiza o número de corações na hora
             document.getElementById('qtd-coracoes').innerText = data.coracoes;
+
+            // Atualiza os corações visuais na hora
+            atualizarVisualAdmin(data.coracoes, data.maxCoracoes || 10);
+
+            if (data.coracoes >= (data.maxCoracoes || 10)) {
+                alert("🎉 Parabéns! O cliente completou o cartão!");
+            }
+        }
+
+        function atualizarVisualAdmin(coracoesAtuais, maxCoracoes = 10) {
+            let html = '';
+            for (let i = 0; i < maxCoracoes; i++) {
+                if (i < coracoesAtuais) {
+                    html += '<span style="color: #ff3366;">❤️</span> ';
+                } else {
+                    html += '<span style="color: #ddd;">🤍</span> ';
+                }
+            }
+            const grid = document.getElementById('grid-coracoes-admin');
+            if (grid) grid.innerHTML = html;
         }
 
         function reiniciarScanner() {
