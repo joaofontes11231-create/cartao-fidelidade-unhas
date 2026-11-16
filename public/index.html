@@ -71,7 +71,7 @@
             });
         }
 
-        function atualizarVisualCartao(data) {
+      function atualizarVisualCartao(data) {
             let html = '';
             for (let i = 0; i < data.maxCoracoes; i++) {
                 if (i < data.coracoes) {
@@ -85,7 +85,8 @@
             if (data.coracoes >= data.maxCoracoes) {
                 document.getElementById('status-premio').innerText = "🎉 Parabéns! Cartão completo! Resgate seu prêmio!";
             } else {
-                document.getElementById('status-premio').innerText = `Faltam ${data.maxCoracoes - data.coracoes} corações para o prêmio.`;
+                const faltam = data.maxCoracoes - data.coracoes;
+                document.getElementById('status-premio').innerText = `Faltam ${faltam} corações para o prêmio.`;
             }
         }
     </script>
