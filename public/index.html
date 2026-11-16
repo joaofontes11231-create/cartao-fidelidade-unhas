@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Meu Cartão Fidelidade - Unhas</title>
+    <!-- Biblioteca para gerar o QR Code na hora -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #fff0f5; color: #333; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; max-width: 380px; margin: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .coracoes { font-size: 26px; margin: 15px 0; line-height: 1.4; }
+        .ativo { color: #ff3366; }
+        .inativo { color: #ddd; }
+        input { padding: 10px; width: 80%; margin: 8px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; background: #ff3366; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+        #qrcode { margin: 20px auto; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="card" id="tela-cadastro">
+        <h2>💅 Cartão Fidelidade</h2>
+        <p>Digite seus dados para gerar seu cartão:</p>
+        <input type="text" id="nome-input" placeholder="Seu Nome"><br>
+        <input type="text" id="tel-input" placeholder="Seu Telefone / WhatsApp"><br><br>
+        <button onclick="gerarCartao()">Criar / Ver Meu Cartão</button>
+    </div>
+
+    <div class="card" id="tela-cartao" style="display:none;">
+        <h2>💅 <span id="nome-exibir"></span></h2>
+        <p>Apresente este QR Code na loja para ganhar seus corações!</p>
+        
+        <div id="qrcode"></div>
+
+        <div class="coracoes" id="grid-coracoes"></div>
+        <p id="status-premio" style="font-weight: bold;"></p>
+    </div>
+
+    <script>
+        async function gerarCartao() {
+            const nome = document.getElementById('nome-input').value.trim();
+            const telefone = document.getElementById('tel-input').value.trim();
+
+            if (!nome || !telefone) {
+                alert('Por favor, preencha o nome e o telefone!');
+                return;
+            }
+
+            // Envia para o servidor para cadastrar ou buscar
+            const res = await fetch('/api/cadastrar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, telefone })
+            });
+            const data = await res.json();
+
+            // Mostra a tela do cartão
+            document.getElementById('tela-cadastro').style.display = 'none';
+            document.getElementById('tela-cartao').style.display = 'block';
+            document.getElementById('nome-exibir').innerText = data.nome;
+
+            // Desenha os corações
+            atualizarVisualCartao(data);
+
+            // Gera o QR Code contendo apenas o telefone da cliente
+            document.getElementById("qrcode").innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
+                text: data.telefone,
+                width: 180,
+                height: 180
+            });
+        }
+
+        function atualizarVisualCartao(data) {
+            let html = '';
+            for (let i = 0; i < data.maxCoracoes; i++) {
+                if (i < data.coracoes) {
+                    html += '<span class="ativo">❤️</span> ';
+                } else {
+                    html += '<span class="inativo">🤍</span> ';
+                }
+            }
+            document.getElementById('grid-coracoes').innerHTML = html;
+
+            if (data.coracoes >= data.maxCoracoes) {
+                document.getElementById('status-premio').innerText = "🎉 Parabéns! Cartão completo! Resgate seu prêmio!";
+            } else {
+                document.getElementById('status-premio').innerText = `Faltam ${data.maxCoracoes - data.coracoes} corações para o prêmio.`;
+            }
+        }
+    </script>
+</body>
+</html>
