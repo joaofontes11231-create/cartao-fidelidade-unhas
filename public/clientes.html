@@ -1,1 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Brendha Elias - Clientes</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            text-align: center;
+            padding: 16px;
+            margin: 0;
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #1f1910 0%, #0b0b0d 75%);
+            color: #f5e6c4;
+        }
+        .box {
+            background: #141417;
+            border: 1px solid rgba(212, 175, 55, 0.45);
+            padding: 24px 20px;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 420px;
+            margin: 16px auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(212, 175, 55, 0.12);
+        }
+        h2, h3 { color: #e5c158; margin: 6px 0 12px 0; }
+        input {
+            padding: 11px 14px;
+            font-size: 15px;
+            width: 100%;
+            margin-bottom: 10px;
+            background: #0d0d10;
+            color: #fff;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 10px;
+            outline: none;
+        }
+        button {
+            padding: 11px 14px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+        }
+        .btn-dourado {
+            background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
+            color: #111;
+            width: 100%;
+        }
+        .btn-voltar {
+            background: #25252b;
+            color: #f5d061;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            width: 100%;
+            margin-top: 8px;
+        }
+        .btn-add { background: #2e7d32; color: #fff; margin: 4px; }
+        .btn-rem { background: #c62828; color: #fff; margin: 4px; }
+        .lista-clientes {
+            margin-top: 12px;
+            text-align: left;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .cliente-btn {
+            width: 100%;
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.28);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+            text-align: left;
+        }
+        .cliente-btn:hover {
+            border-color: #f5d061;
+        }
+        .cliente-nome { font-weight: bold; font-size: 15px; display: block; color: #fff; }
+        .cliente-tel { font-size: 12px; color: #cbb88a; display: block; }
+        .cliente-pts { font-size: 14px; font-weight: bold; color: #f5d061; white-space: nowrap; }
+        .detalhe-box {
+            margin-top: 14px;
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            border-radius: 14px;
+            padding: 16px;
+        }
+        #msg-completo {
+            color: #f5d061;
+            font-weight: bold;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+        .aviso-bloqueio {
+            color: #ef9a9a;
+            background: rgba(198, 40, 40, 0.16);
+            border: 1px solid rgba(198, 40, 40, 0.45);
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .motivo-bloqueio {
+            margin-top: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #f5e6c4;
+        }
+        .subaviso-bloqueio {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #cbb88a;
+        }
+    </style>
+</head>
+<body>
 
+    <div class="box" id="tela-bloqueio" style="display:none;">
+        <h2>Studio Brendha Elias</h2>
+        <div class="aviso-bloqueio">Acesso temporariamente suspenso.</div>
+        <div id="motivo-bloqueio" class="motivo-bloqueio" style="display:none;"></div>
+        <div id="subaviso-bloqueio" class="subaviso-bloqueio" style="display:none;"></div>
+    </div>
+
+    <div class="box" id="tela-login">
+        <h2>Clientes - Acesso do Painel</h2>
+        <p style="color:#cbb88a; font-size:14px;">Digite a senha do painel para ver as clientes:</p>
+        <input type="password" id="senha-painel" placeholder="Senha do painel">
+        <button type="button" class="btn-dourado" onclick="entrar()">Entrar</button>
+        <button type="button" class="btn-voltar" onclick="window.location.href='admin.html'">Voltar ao Scanner</button>
+        <p id="erro-login" style="color:#ff6b6b; margin-top:10px;"></p>
+    </div>
+
+    <div class="box" id="tela-clientes" style="display:none;">
+        <h2>Todas as Clientes</h2>
+        <input type="text" id="busca-cliente" placeholder="Buscar por nome ou telefone..." oninput="filtrarClientes()">
+        <div class="lista-clientes" id="lista-clientes"></div>
+
+        <div class="detalhe-box" id="detalhe-cliente" style="display:none;">
+            <h3 id="detalhe-nome" style="color:#fff; margin-bottom:4px;"></h3>
+            <p style="margin:0; color:#cbb88a; font-size:13px;">Telefone: <span id="detalhe-tel" style="color:#fff;"></span></p>
+            <p style="margin:10px 0 4px 0;">Corações: <strong id="detalhe-coracoes" style="font-size:26px; color:#f5d061;">0</strong> / 7</p>
+            <div id="detalhe-grid" style="margin:10px 0; font-size:24px;"></div>
+            <div>
+                <button type="button" class="btn-add" onclick="alterar('adicionar')">➕ Dar Coração</button>
+                <button type="button" class="btn-rem" onclick="alterar('remover')">➖ Remover</button>
+            </div>
+            <p id="msg-completo"></p>
+        </div>
+
+        <button type="button" class="btn-voltar" onclick="window.location.href='admin.html'">Voltar ao Painel Principal</button>
+    </div>
+
+    <script>
+        const META_CORACOES = 7;
+        let tokenAdmin = '';
+        let clientesCache = [];
+        let clienteSelecionado = null;
+
+        function escaparTexto(texto) {
+            const div = document.createElement('div');
+            div.textContent = String(texto ?? '');
+            return div.innerHTML;
+        }
+
+        function mostrarBloqueio(bloqueado, motivo = '', subaviso = '') {
+            const b = document.getElementById('tela-bloqueio');
+            const l = document.getElementById('tela-login');
+            const c = document.getElementById('tela-clientes');
+            const m = document.getElementById('motivo-bloqueio');
+            const s = document.getElementById('subaviso-bloqueio');
+
+            if (bloqueado) {
+                b.style.display = 'block';
+                l.style.display = 'none';
+                c.style.display = 'none';
+                m.style.display = motivo ? 'block' : 'none';
+                m.innerText = motivo || '';
+                s.style.display = subaviso ? 'block' : 'none';
+                s.innerText = subaviso || '';
+            } else {
+                b.style.display = 'none';
+                if (!tokenAdmin) l.style.display = 'block';
+            }
+        }
+
+        async function verificarStatus() {
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    mostrarBloqueio(data.ativo === false, data.motivo || '', data.subaviso || '');
+                }
+            } catch (e) {}
+        }
+
+        async function entrar() {
+            const senha = document.getElementById('senha-painel').value;
+            const erro = document.getElementById('erro-login');
+            erro.innerText = '';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senha })
+                });
+
+                if (res.status === 403) {
+                    const d = await res.json().catch(() => ({}));
+                    mostrarBloqueio(true, d.motivo || '', d.subaviso || '');
+                    return;
+                }
+
+                const data = await res.json();
+                if (!data.sucesso || !data.token) {
+                    erro.innerText = data.erro || 'Senha incorreta!';
+                    return;
+                }
+
+                tokenAdmin = data.token;
+                document.getElementById('tela-login').style.display = 'none';
+                document.getElementById('tela-clientes').style.display = 'block';
+                await carregarClientes();
+            } catch (e) {
+                erro.innerText = 'Falha ao conectar.';
+            }
+        }
+
+        async function carregarClientes() {
+            const res = await fetch('/api/clientes', {
+                headers: { 'Authorization': `Bearer ${tokenAdmin}` }
+            });
+            if (res.status === 403) {
+                const d = await res.json().catch(() => ({}));
+                mostrarBloqueio(true, d.motivo || '', d.subaviso || '');
+                return;
+            }
+            if (res.ok) {
+                const lista = await res.json();
+                clientesCache = Array.isArray(lista) ? lista : [];
+                filtrarClientes();
+
+                if (clienteSelecionado) {
+                    const atualizada = clientesCache.find(x => String(x.telefone) === String(clienteSelecionado.telefone));
+                    if (atualizada) {
+                        selecionarCliente(atualizada);
+                    }
+                }
+            }
+        }
+
+        function filtrarClientes() {
+            const termo = (document.getElementById('busca-cliente').value || '').trim().toLowerCase();
+            const filtrados = !termo
+                ? clientesCache
+                : clientesCache.filter(c =>
+                    String(c.nome || '').toLowerCase().includes(termo) ||
+                    String(c.telefone || '').toLowerCase().includes(termo)
+                );
+
+            const container = document.getElementById('lista-clientes');
+            if (!filtrados.length) {
+                container.innerHTML = '<p style="color:#cbb88a; font-size:13px; text-align:center;">Nenhuma cliente encontrada.</p>';
+                return;
+            }
+
+            container.innerHTML = filtrados.map((c, idx) => {
+                const coracoes = Number(c.coracoes || 0);
+                const max = Number(c.maxCoracoes || META_CORACOES);
+                return `
+                    <button type="button" class="cliente-btn" data-idx="${idx}">
+                        <div>
+                            <span class="cliente-nome">${escaparTexto(c.nome || 'Cliente')}</span>
+                            <span class="cliente-tel">${escaparTexto(c.telefone || '-')}</span>
+                        </div>
+                        <span class="cliente-pts">💛 ${coracoes}/${max}</span>
+                    </button>
+                `;
+            }).join('');
+
+            container.querySelectorAll('.cliente-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const item = filtrados[Number(btn.dataset.idx)];
+                    if (item) selecionarCliente(item);
+                });
+            });
+        }
+
+        function selecionarCliente(cliente) {
+            clienteSelecionado = cliente;
+            const coracoes = Number(cliente.coracoes || 0);
+            const max = Number(cliente.maxCoracoes || META_CORACOES);
+
+            document.getElementById('detalhe-cliente').style.display = 'block';
+            document.getElementById('detalhe-nome').innerText = cliente.nome || 'Cliente';
+            document.getElementById('detalhe-tel').innerText = cliente.telefone || '-';
+            document.getElementById('detalhe-coracoes').innerText = coracoes;
+
+            let html = '';
+            for (let i = 0; i < max; i++) {
+                html += i < coracoes
+                    ? '<span style="color:#f5c136;">💛</span> '
+                    : '<span style="color:#444038;">🤍</span> ';
+            }
+            document.getElementById('detalhe-grid').innerHTML = html;
+            document.getElementById('msg-completo').innerText =
+                coracoes >= max ? 'parabéns, você completou seu cartão 🎉' : '';
+        }
+
+        async function alterar(acao) {
+            if (!clienteSelecionado) return;
+            const res = await fetch('/api/atualizar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telefone: clienteSelecionado.telefone, acao })
+            });
+            if (res.status === 403) {
+                const d = await res.json().catch(() => ({}));
+                mostrarBloqueio(true, d.motivo || '', d.subaviso || '');
+                return;
+            }
+            const atualizada = await res.json();
+            selecionarCliente(atualizada);
+            await carregarClientes();
+        }
+
+        verificarStatus();
+    </script>
+</body>
+</html>
