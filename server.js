@@ -118,11 +118,17 @@ app.get('/api/cliente/:telefone', verificarLicenca, async (req, res) => {
 // Remover cliente pelo painel da dona
 app.delete('/api/cliente/:telefone', verificarLicenca, async (req, res) => {
     try {
-        const tel = decodeURIComponent(req.params.telefone || '').trim();
-        await Cliente.deleteOne({ telefone: tel });
-        res.json({ sucesso: true, mensagem: 'Cliente removido.' });
+        const telLimpo = String(req.params.telefone || '').trim();
+        if (!telLimpo) {
+            return res.status(400).json({ sucesso: false, erro: 'Telefone inválido.' });
+        }
+        const removido = await Cliente.findOneAndDelete({ telefone: telLimpo });
+        if (!removido) {
+            return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado.' });
+        }
+        return res.json({ sucesso: true, mensagem: 'Cliente removido.' });
     } catch (e) {
-        res.status(500).json({ sucesso: false, erro: 'Erro ao remover cliente.' });
+        return res.status(500).json({ sucesso: false, erro: 'Erro ao remover cliente.' });
     }
 });
 
