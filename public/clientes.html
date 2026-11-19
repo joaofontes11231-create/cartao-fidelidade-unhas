@@ -26,6 +26,30 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(212, 175, 55, 0.12);
         }
         h2, h3 { color: #e5c158; margin: 6px 0 12px 0; }
+        .metricas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 12px 0 14px 0;
+        }
+        .metrica-card {
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 12px;
+            padding: 12px 10px;
+        }
+        .metrica-valor {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f5d061;
+            display: block;
+        }
+        .metrica-label {
+            font-size: 12px;
+            color: #cbb88a;
+            margin-top: 4px;
+            display: block;
+        }
         input {
             padding: 11px 14px;
             font-size: 15px;
@@ -57,7 +81,7 @@
         .lista-clientes {
             margin-top: 12px;
             text-align: left;
-            max-height: 360px;
+            max-height: 340px;
             overflow-y: auto;
         }
         .cliente-btn {
@@ -120,11 +144,23 @@
         <h2>Studio Brendha Elias</h2>
         <div class="aviso-bloqueio">Acesso temporariamente suspenso.</div>
         <div id="motivo-bloqueio" class="motivo-bloqueio" style="display:none;"></div>
-        <div id="subaviso-bloqueio" class="subaviso-bloqueio" style="display:none;"></div>
+        <div id="subaviso-bloqueio" class="subaviso-bloqueio">Em breve nós voltamos</div>
     </div>
 
     <div class="box" id="tela-clientes">
-        <h2>Todas as Clientes</h2>
+        <h2>Clientes e Metas</h2>
+
+        <div class="metricas-grid">
+            <div class="metrica-card">
+                <span class="metrica-valor" id="total-clientes">0</span>
+                <span class="metrica-label">Clientes com cartão</span>
+            </div>
+            <div class="metrica-card">
+                <span class="metrica-valor" id="clientes-meta">0</span>
+                <span class="metrica-label">Meta de 7 concluída</span>
+            </div>
+        </div>
+
         <input type="text" id="busca-cliente" placeholder="Buscar por nome ou telefone..." oninput="filtrarClientes()">
         <div class="lista-clientes" id="lista-clientes"></div>
 
@@ -148,6 +184,7 @@
         const TEXTO_VOLTA = 'Em breve nós voltamos';
         let clientesCache = [];
         let clienteSelecionado = null;
+        let siteBloqueadoAtual = false;
 
         function escaparTexto(texto) {
             const div = document.createElement('div');
@@ -156,12 +193,13 @@
         }
 
         function mostrarBloqueio(bloqueado, motivo = '') {
+            siteBloqueadoAtual = Boolean(bloqueado);
             const b = document.getElementById('tela-bloqueio');
             const c = document.getElementById('tela-clientes');
             const m = document.getElementById('motivo-bloqueio');
             const s = document.getElementById('subaviso-bloqueio');
 
-            if (bloqueado) {
+            if (siteBloqueadoAtual) {
                 b.style.display = 'block';
                 c.style.display = 'none';
                 m.style.display = motivo ? 'block' : 'none';
@@ -174,32 +212,47 @@
             }
         }
 
+        function atualizarContadores(lista) {
+            const total = lista.length;
+            const concluidos = lista.filter(c => Number(c.coracoes || 0) >= Number(c.maxCoracoes || META_CORACOES)).length;
+            document.getElementById('total-clientes').innerText = total;
+            document.getElementById('clientes-meta').innerText = concluidos;
+        }
+
         async function carregarClientes() {
             try {
-                const statusRes = await fetch('/api/status');
-                if (statusRes.ok) {
-                    const st = await statusRes.json();
-                    if (st.ativo === false) {
-                        mostrarBloqueio(true, st.motivo || '');
-                        return;
-                    }
-                    mostrarBloqueio(false);
-                }
-
                 const res = await fetch('/api/clientes');
                 if (res.status === 403) {
                     const d = await res.json().catch(() => ({}));
                     mostrarBloqueio(true, d.motivo || '');
                     return;
                 }
+                mostrarBloqueio(false);
                 if (res.ok) {
                     const lista = await res.json();
                     clientesCache = Array.isArray(lista) ? lista : [];
+                    atualizarContadores(clientesCache);
                     filtrarClientes();
 
                     if (clienteSelecionado) {
                         const atualizada = clientesCache.find(x => String(x.telefone) === String(clienteSelecionado.telefone));
                         if (atualizada) selecionarCliente(atualizada);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function monitorarStatusAoVivo() {
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const st = await res.json();
+                    const bloqueadoAgora = st.ativo === false;
+                    if (bloqueadoAgora) {
+                        mostrarBloqueio(true, st.motivo || '');
+                    } else if (siteBloqueadoAtual) {
+                        mostrarBloqueio(false);
+                        await carregarClientes();
                     }
                 }
             } catch (e) {}
@@ -281,6 +334,7 @@
         }
 
         carregarClientes();
+        setInterval(monitorarStatusAoVivo, 2000);
     </script>
 </body>
 </html>
