@@ -115,6 +115,17 @@ app.get('/api/cliente/:telefone', verificarLicenca, async (req, res) => {
     res.json(cliente);
 });
 
+// Remover cliente pelo painel da dona
+app.delete('/api/cliente/:telefone', verificarLicenca, async (req, res) => {
+    try {
+        const tel = decodeURIComponent(req.params.telefone || '').trim();
+        await Cliente.deleteOne({ telefone: tel });
+        res.json({ sucesso: true, mensagem: 'Cliente removido.' });
+    } catch (e) {
+        res.status(500).json({ sucesso: false, erro: 'Erro ao remover cliente.' });
+    }
+});
+
 // Cadastrar ou atualizar nome
 app.post('/api/cadastrar', verificarLicenca, async (req, res) => {
     const { telefone, nome } = req.body || {};
@@ -129,7 +140,7 @@ app.post('/api/cadastrar', verificarLicenca, async (req, res) => {
     res.json(cliente);
 });
 
-// Adicionar ou remover corações
+// Adicionar, remover ou zerar corações
 app.post('/api/atualizar', verificarLicenca, async (req, res) => {
     const { telefone, acao } = req.body || {};
     let cliente = await Cliente.findOne({ telefone });
@@ -141,6 +152,8 @@ app.post('/api/atualizar', verificarLicenca, async (req, res) => {
         cliente.coracoes += 1;
     } else if (acao === 'remover' && cliente.coracoes > 0) {
         cliente.coracoes -= 1;
+    } else if (acao === 'zerar') {
+        cliente.coracoes = 0;
     }
 
     await cliente.save();
