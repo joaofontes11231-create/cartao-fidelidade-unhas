@@ -95,31 +95,6 @@
             pointer-events: none;
         }
 
-        .metricas-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 14px 0 14px 0;
-        }
-        .metrica-card {
-            background: #0d0d10;
-            border: 1px solid rgba(212, 175, 55, 0.3);
-            border-radius: 12px;
-            padding: 12px 10px;
-        }
-        .metrica-valor {
-            font-size: 24px;
-            font-weight: bold;
-            color: #f5d061;
-            display: block;
-        }
-        .metrica-label {
-            font-size: 12px;
-            color: #cbb88a;
-            margin-top: 4px;
-            display: block;
-        }
-
         button {
             padding: 11px 16px;
             font-size: 15px;
@@ -240,20 +215,9 @@
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
         <h2>Painel do Studio</h2>
 
-        <div class="metricas-grid">
-            <div class="metrica-card">
-                <span class="metrica-valor" id="total-clientes">0</span>
-                <span class="metrica-label">Clientes com cartão</span>
-            </div>
-            <div class="metrica-card">
-                <span class="metrica-valor" id="clientes-meta">0</span>
-                <span class="metrica-label">Meta de 7 concluída</span>
-            </div>
-        </div>
+        <button type="button" class="btn-dourado" onclick="window.location.href='clientes.html'">Ver Clientes e Metas</button>
 
-        <button type="button" class="btn-dourado" onclick="window.location.href='clientes.html'">Ver Todas as Clientes</button>
-
-        <h3 style="color:#e5c158; margin:14px 0 6px 0; font-size:18px;">Escanear QR Code</h3>
+        <h3 style="color:#e5c158; margin:16px 0 6px 0; font-size:18px;">Escanear QR Code</h3>
         <button type="button" id="btn-abrir-camera" class="btn-scan" onclick="alternarCamera()">📷 Abrir Câmera para Escanear</button>
         <div id="reader"></div>
         <p id="erro-camera" style="color:#ff6b6b; font-size:13px;"></p>
@@ -284,7 +248,7 @@
         let html5QrCode = null;
         let scannerRodando = false;
         let autenticado = false;
-        const mapaClientesLocal = new Map();
+        let siteBloqueadoAtual = false;
 
         let desenhando = false;
         let sequenciaPad = [];
@@ -296,13 +260,14 @@
         const cells = Array.from(document.querySelectorAll('.pad-cell'));
 
         function mostrarBloqueio(bloqueado, motivo = '') {
+            siteBloqueadoAtual = Boolean(bloqueado);
             const telaBloqueio = document.getElementById('tela-bloqueio');
             const telaLogin = document.getElementById('tela-login');
             const telaPainel = document.getElementById('tela-painel');
             const motivoEl = document.getElementById('motivo-bloqueio');
             const subavisoEl = document.getElementById('subaviso-bloqueio');
 
-            if (bloqueado) {
+            if (siteBloqueadoAtual) {
                 pararScanner();
                 telaBloqueio.style.display = 'block';
                 telaLogin.style.display = 'none';
@@ -313,7 +278,9 @@
                 subavisoEl.innerText = TEXTO_VOLTA;
             } else {
                 telaBloqueio.style.display = 'none';
-                if (!autenticado) {
+                if (autenticado) {
+                    telaPainel.style.display = 'block';
+                } else {
                     telaLogin.style.display = 'block';
                 }
             }
@@ -324,7 +291,12 @@
                 const res = await fetch('/api/status');
                 if (res.ok) {
                     const data = await res.json();
-                    mostrarBloqueio(data.ativo === false, data.motivo || '');
+                    const bloqueadoAgora = data.ativo === false;
+                    if (bloqueadoAgora) {
+                        mostrarBloqueio(true, data.motivo || '');
+                    } else if (siteBloqueadoAtual) {
+                        mostrarBloqueio(false);
+                    }
                 }
             } catch (e) {}
         }
@@ -452,7 +424,7 @@
             if (tracoFeito === ORDEM_TRACO_DONA) {
                 await verificarStatus();
                 if (document.getElementById('tela-bloqueio').style.display !== 'block') {
-                    await abrirPainelPrincipal();
+                    abrirPainelPrincipal();
                 }
                 return;
             }
@@ -460,7 +432,7 @@
             try {
                 const ok = await autenticarNoServidor(tracoFeito);
                 if (ok) {
-                    await abrirPainelPrincipal();
+                    abrirPainelPrincipal();
                     return;
                 }
             } catch (e) {}
@@ -477,46 +449,16 @@
             const senha = document.getElementById('senha-input').value;
             const ok = await autenticarNoServidor(senha);
             if (ok) {
-                await abrirPainelPrincipal();
+                abrirPainelPrincipal();
             } else {
                 document.getElementById('erro-login').innerText = "Senha incorreta!";
             }
         }
 
-        async function abrirPainelPrincipal() {
+        function abrirPainelPrincipal() {
             autenticado = true;
             document.getElementById('tela-login').style.display = 'none';
             document.getElementById('tela-painel').style.display = 'block';
-            await atualizarMetricasClientes();
-        }
-
-        async function atualizarMetricasClientes() {
-            try {
-                const res = await fetch('/api/clientes');
-                if (res.status === 403) {
-                    const d = await res.json().catch(() => ({}));
-                    mostrarBloqueio(true, d.motivo || '');
-                    return;
-                }
-                if (res.ok) {
-                    const clientes = await res.json();
-                    if (Array.isArray(clientes)) {
-                        clientes.forEach(c => {
-                            if (c && c.telefone) {
-                                mapaClientesLocal.set(String(c.telefone), Number(c.coracoes || 0));
-                            }
-                        });
-                    }
-                }
-            } catch (e) {}
-
-            const valores = Array.from(mapaClientesLocal.values());
-            renderizarContadores(valores.length, valores.filter(q => q >= META_CORACOES).length);
-        }
-
-        function renderizarContadores(total, concluidos) {
-            document.getElementById('total-clientes').innerText = total;
-            document.getElementById('clientes-meta').innerText = concluidos;
         }
 
         async function alternarCamera() {
@@ -582,9 +524,6 @@
             const coracoes = Number(data.coracoes || 0);
             const telFinal = String(data.telefone || tel);
 
-            mapaClientesLocal.set(telFinal, coracoes);
-            await atualizarMetricasClientes();
-
             document.getElementById('info-nome').innerText = `Cliente: ${data.nome || 'Cliente'}`;
             document.getElementById('info-tel').innerText = telFinal;
             document.getElementById('qtd-coracoes').innerText = coracoes;
@@ -606,9 +545,6 @@
             }
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
-
-            mapaClientesLocal.set(String(telefoneAtual), coracoes);
-            await atualizarMetricasClientes();
 
             document.getElementById('qtd-coracoes').innerText = coracoes;
             atualizarVisualAdmin(coracoes, META_CORACOES);
@@ -641,6 +577,7 @@
         }
 
         verificarStatus();
+        setInterval(verificarStatus, 2000);
     </script>
 </body>
 </html>
