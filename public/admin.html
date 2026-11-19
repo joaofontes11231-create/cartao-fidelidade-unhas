@@ -180,7 +180,7 @@
     <div id="tela-login" class="box">
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
         <h2>Studio Brendha Elias</h2>
-        <p style="color:#cbb88a; margin:0 0 8px 0; font-size:14px;">Arraste o dedo pelos pontos para desbloquear:</p>
+        <p style="color:#cbb88a; margin:0 0 8px 0; font-size:14px;">Arraste o dedo formando um quadrado para desbloquear:</p>
 
         <div class="pad-wrapper" id="pad-wrapper">
             <canvas id="pad-canvas" width="240" height="240"></canvas>
@@ -249,6 +249,7 @@
 
     <script>
         const META_CORACOES = 7;
+        const PADRAO_QUADRADO = "1-2-3-6-9-8-7-4-1";
         let telefoneAtual = "";
         let html5QrCode = null;
         let scannerRodando = false;
@@ -361,27 +362,34 @@
             redesenharTraco(null);
 
             if (sequenciaPad.length < 3) {
-                document.getElementById('erro-login').innerText = "Arraste por pelo menos 3 pontos.";
+                document.getElementById('erro-login').innerText = "Arraste formando um quadrado.";
                 return;
             }
 
-            // Envia o padrão desenhado como senha para /api/login
-            const padraoSenha = sequenciaPad.join('-');
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ senha: padraoSenha, padrao: padraoSenha })
-            });
-            const data = await res.json();
+            const padraoDesenhado = sequenciaPad.join('-');
 
-            if (data.sucesso) {
+            if (padraoDesenhado === PADRAO_QUADRADO) {
                 abrirPainelPrincipal();
-            } else {
-                // Exibe campo de senha caso o servidor use senha textual diferente do traço
-                document.getElementById('area-senha-extra').style.display = 'block';
-                document.getElementById('erro-login').innerText =
-                    "Traço não aceito como senha direta. Digite a senha abaixo ou tente outro traço.";
+                return;
             }
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senha: padraoDesenhado, padrao: padraoDesenhado })
+                });
+                const data = await res.json();
+
+                if (data.sucesso) {
+                    abrirPainelPrincipal();
+                    return;
+                }
+            } catch (e) {}
+
+            document.getElementById('area-senha-extra').style.display = 'block';
+            document.getElementById('erro-login').innerText =
+                "Traço diferente do quadrado (1→2→3→6→9→8→7→4→1). Tente de novo ou use a senha abaixo.";
         }
 
         padWrapper.addEventListener('pointerup', finalizarArrasto);
@@ -411,7 +419,6 @@
         }
 
         async function atualizarMetricasClientes() {
-            // Tenta buscar lista de clientes no backend se existir uma rota disponível
             const rotasPossiveis = ['/api/clientes', '/api/stats'];
             for (const rota of rotasPossiveis) {
                 try {
@@ -433,7 +440,6 @@
                 } catch (e) {}
             }
 
-            // Fallback local caso ainda não haja rota de listagem no server.js
             const valores = Array.from(mapaClientesLocal.values());
             renderizarContadores(valores.length, valores.filter(q => q >= META_CORACOES).length);
         }
