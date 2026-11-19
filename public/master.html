@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle do Sistema</title>
+    <title>Painel Master</title>
     <style>
         * { box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
             text-align: center;
-            padding: 20px;
+            padding: 16px;
             margin: 0;
             min-height: 100vh;
-            background: #0b0b0d;
+            background: radial-gradient(circle at top, #1f1910 0%, #0b0b0d 75%);
             color: #f5e6c4;
         }
         .box {
@@ -21,23 +21,25 @@
             padding: 24px 20px;
             border-radius: 18px;
             width: 100%;
-            max-width: 390px;
-            margin: 24px auto;
+            max-width: 440px;
+            margin: 16px auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
         }
-        h2 { color: #e5c158; margin-top: 0; }
+        h2, h3 { color: #e5c158; margin-top: 0; }
         input {
             width: 100%;
-            padding: 12px;
+            padding: 12px 14px;
             margin: 10px 0;
             border-radius: 10px;
             border: 1px solid rgba(212, 175, 55, 0.4);
             background: #0d0d10;
             color: #fff;
             font-size: 15px;
+            outline: none;
         }
         button {
             width: 100%;
-            padding: 12px;
+            padding: 12px 16px;
             margin-top: 8px;
             border: none;
             border-radius: 10px;
@@ -49,112 +51,207 @@
             background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
             color: #111;
         }
-        .btn-bloquear {
-            background: #c62828;
-            color: #fff;
+        .btn-bloquear { background: #c62828; color: #fff; }
+        .btn-desbloquear { background: #2e7d32; color: #fff; }
+        .btn-atualizar {
+            background: #25252b;
+            color: #f5d061;
+            border: 1px solid rgba(212, 175, 55, 0.4);
         }
-        .btn-desbloquear {
-            background: #2e7d32;
-            color: #fff;
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 14px 0;
         }
-        .status-badge {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 999px;
+        .info-card {
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.28);
+            border-radius: 12px;
+            padding: 12px 10px;
+        }
+        .info-valor {
+            display: block;
+            font-size: 18px;
             font-weight: bold;
-            margin: 10px 0 16px 0;
-            font-size: 14px;
+            color: #f5d061;
         }
-        .ativo { background: rgba(46, 125, 50, 0.25); color: #81c784; border: 1px solid #2e7d32; }
-        .bloqueado { background: rgba(198, 40, 40, 0.25); color: #ef9a9a; border: 1px solid #c62828; }
-        #msg { margin-top: 12px; font-size: 14px; color: #f5d061; min-height: 20px; }
+        .info-rotulo {
+            display: block;
+            font-size: 12px;
+            color: #cbb88a;
+            margin-top: 4px;
+        }
+        .lista-clientes {
+            margin-top: 12px;
+            text-align: left;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .cliente-item {
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.22);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .cliente-nome { font-weight: bold; color: #fff; font-size: 14px; display: block; }
+        .cliente-tel { color: #cbb88a; font-size: 12px; display: block; }
+        .cliente-coracoes { color: #f5d061; font-weight: bold; font-size: 14px; white-space: nowrap; }
+        #msg-login, #msg-acao {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #f5d061;
+            min-height: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="box" id="login-box">
-        <h2>Acesso do Proprietário</h2>
-        <input type="password" id="chave-mestra" placeholder="Chave de acesso">
-        <button type="button" class="btn-ouro" onclick="entrarMestre()">Entrar</button>
-        <p id="msg"></p>
+    <div class="box" id="box-login">
+        <h2>Acesso Master</h2>
+        <input type="password" id="senha-mestra" placeholder="Senha do proprietário">
+        <button type="button" class="btn-ouro" onclick="entrar()">Entrar</button>
+        <p id="msg-login"></p>
     </div>
 
-    <div class="box" id="painel-box" style="display:none;">
-        <h2>Controle do Site</h2>
-        <div id="badge-status" class="status-badge">Carregando...</div>
-        <p style="font-size:13px; color:#cbb88a;">Os dados de clientes e corações permanecem salvos no banco em qualquer estado.</p>
+    <div class="box" id="box-painel" style="display:none;">
+        <h2 id="nome-site">Studio Brendha Elias</h2>
 
-        <button type="button" id="btn-acao" onclick="alternarBloqueio()">...</button>
-        <p id="msg-painel" style="margin-top:12px; font-size:14px; color:#f5d061;"></p>
+        <div class="info-grid">
+            <div class="info-card">
+                <span class="info-valor" id="status-conexao">-</span>
+                <span class="info-rotulo">Conexão</span>
+            </div>
+            <div class="info-card">
+                <span class="info-valor" id="status-licenca">-</span>
+                <span class="info-rotulo">Estado do site</span>
+            </div>
+            <div class="info-card">
+                <span class="info-valor" id="total-clientes">0</span>
+                <span class="info-rotulo">Clientes</span>
+            </div>
+            <div class="info-card">
+                <span class="info-valor" id="total-concluidos">0</span>
+                <span class="info-rotulo">Meta de 7 concluída</span>
+            </div>
+        </div>
+
+        <button type="button" id="btn-bloqueio" onclick="alternarLicenca()">...</button>
+        <button type="button" class="btn-atualizar" onclick="carregarPainel()">Atualizar Dados</button>
+        <p id="msg-acao"></p>
+
+        <h3 style="margin-top:18px; font-size:17px;">Clientes</h3>
+        <div class="lista-clientes" id="lista-clientes"></div>
     </div>
 
     <script>
-        let chaveAtual = '';
-        let estadoAtual = true;
+        let senhaSalva = '';
+        let siteAtivo = true;
 
-        async function entrarMestre() {
-            const chave = document.getElementById('chave-mestra').value.trim();
-            const msg = document.getElementById('msg');
-            if (!chave) {
-                msg.innerText = 'Informe a chave.';
+        function escaparTexto(texto) {
+            const div = document.createElement('div');
+            div.textContent = String(texto ?? '');
+            return div.innerHTML;
+        }
+
+        async function entrar() {
+            const senha = document.getElementById('senha-mestra').value.trim();
+            const msg = document.getElementById('msg-login');
+            if (!senha) {
+                msg.innerText = 'Digite a senha do proprietário.';
+                return;
+            }
+            senhaSalva = senha;
+            await carregarPainel(true);
+        }
+
+        async function carregarPainel(primeiroAcesso = false) {
+            try {
+                const res = await fetch('/api/mestre/painel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senhaMestra: senhaSalva })
+                });
+                const data = await res.json();
+
+                if (!res.ok || !data.sucesso) {
+                    if (primeiroAcesso) {
+                        document.getElementById('msg-login').innerText = data.erro || 'Acesso negado.';
+                    } else {
+                        document.getElementById('msg-acao').innerText = data.erro || 'Acesso negado.';
+                    }
+                    return;
+                }
+
+                document.getElementById('box-login').style.display = 'none';
+                document.getElementById('box-painel').style.display = 'block';
+
+                siteAtivo = Boolean(data.site?.ativo);
+                document.getElementById('nome-site').innerText = data.site?.nome || 'Studio Brendha Elias';
+                document.getElementById('status-conexao').innerText = data.site?.online ? 'Online' : 'Offline';
+                document.getElementById('status-licenca').innerText = siteAtivo ? 'Desbloqueado' : 'Bloqueado';
+                document.getElementById('total-clientes').innerText = Number(data.resumo?.totalClientes || 0);
+                document.getElementById('total-concluidos').innerText = Number(data.resumo?.metasConcluidas || 0);
+
+                const btn = document.getElementById('btn-bloqueio');
+                if (siteAtivo) {
+                    btn.innerText = 'Bloquear Site';
+                    btn.className = 'btn-bloquear';
+                } else {
+                    btn.innerText = 'Desbloquear Site';
+                    btn.className = 'btn-desbloquear';
+                }
+
+                renderizarClientes(Array.isArray(data.clientes) ? data.clientes : []);
+            } catch (e) {
+                document.getElementById('status-conexao').innerText = 'Offline';
+            }
+        }
+
+        function renderizarClientes(clientes) {
+            const container = document.getElementById('lista-clientes');
+            if (!clientes.length) {
+                container.innerHTML = '<p style="color:#cbb88a; font-size:13px; text-align:center;">Nenhum cliente cadastrado.</p>';
                 return;
             }
 
-            try {
-                const res = await fetch('/api/mestre/status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senhaMestra: chave })
-                });
-                const data = await res.json();
-                if (data.sucesso) {
-                    chaveAtual = chave;
-                    estadoAtual = Boolean(data.ativo);
-                    document.getElementById('login-box').style.display = 'none';
-                    document.getElementById('painel-box').style.display = 'block';
-                    renderEstado();
-                } else {
-                    msg.innerText = data.erro || 'Acesso negado.';
-                }
-            } catch (e) {
-                msg.innerText = 'Falha na comunicação.';
-            }
+            container.innerHTML = clientes.map(c => {
+                const coracoes = Number(c.coracoes || 0);
+                const max = Number(c.maxCoracoes || 7);
+                return `
+                    <div class="cliente-item">
+                        <div>
+                            <span class="cliente-nome">${escaparTexto(c.nome || 'Cliente')}</span>
+                            <span class="cliente-tel">${escaparTexto(c.telefone || '-')}</span>
+                        </div>
+                        <span class="cliente-coracoes">💛 ${coracoes}/${max}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
-        function renderEstado() {
-            const badge = document.getElementById('badge-status');
-            const btn = document.getElementById('btn-acao');
-            if (estadoAtual) {
-                badge.textContent = 'STATUS: ATIVO';
-                badge.className = 'status-badge ativo';
-                btn.textContent = 'Bloquear Site';
-                btn.className = 'btn-bloquear';
-            } else {
-                badge.textContent = 'STATUS: BLOQUEADO';
-                badge.className = 'status-badge bloqueado';
-                btn.textContent = 'Desbloquear Site';
-                btn.className = 'btn-desbloquear';
-            }
-        }
-
-        async function alternarBloqueio() {
-            const msgPainel = document.getElementById('msg-painel');
+        async function alternarLicenca() {
+            const msgAcao = document.getElementById('msg-acao');
             try {
                 const res = await fetch('/api/mestre/alternar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senhaMestra: chaveAtual, ativo: !estadoAtual })
+                    body: JSON.stringify({ senhaMestra: senhaSalva, ativo: !siteAtivo })
                 });
                 const data = await res.json();
                 if (data.sucesso) {
-                    estadoAtual = Boolean(data.ativo);
-                    renderEstado();
-                    msgPainel.innerText = data.mensagem || 'Atualizado.';
+                    msgAcao.innerText = data.mensagem || 'Atualizado.';
+                    await carregarPainel();
                 } else {
-                    msgPainel.innerText = data.erro || 'Erro ao atualizar.';
+                    msgAcao.innerText = data.erro || 'Erro ao atualizar.';
                 }
             } catch (e) {
-                msgPainel.innerText = 'Falha na comunicação.';
+                msgAcao.innerText = 'Falha ao comunicar com o servidor.';
             }
         }
     </script>
