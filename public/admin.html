@@ -49,7 +49,6 @@
             border: 1px solid rgba(212, 175, 55, 0.35);
         }
 
-        /* Área de desbloqueio arrastando o dedo */
         .pad-wrapper {
             position: relative;
             width: 240px;
@@ -95,7 +94,6 @@
             pointer-events: none;
         }
 
-        /* Painel de métricas */
         .metricas-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -172,15 +170,29 @@
             margin-top: 10px;
             min-height: 22px;
         }
+        .aviso-bloqueio {
+            color: #ef9a9a;
+            background: rgba(198, 40, 40, 0.16);
+            border: 1px solid rgba(198, 40, 40, 0.45);
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- TELA DE LOGIN COM DESBLOQUEIO POR ARRASTAR O DEDO -->
+    <div id="tela-bloqueio" class="box" style="display:none;">
+        <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
+        <h2>Studio Brendha Elias</h2>
+        <div class="aviso-bloqueio">Acesso temporariamente suspenso.</div>
+    </div>
+
     <div id="tela-login" class="box">
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
         <h2>Studio Brendha Elias</h2>
-        <p style="color:#cbb88a; margin:0 0 8px 0; font-size:14px;">Arraste o dedo formando um quadrado para desbloquear:</p>
+        <p style="color:#cbb88a; margin:0 0 8px 0; font-size:14px;">Arraste o dedo pelos pontos para desbloquear:</p>
 
         <div class="pad-wrapper" id="pad-wrapper">
             <canvas id="pad-canvas" width="240" height="240"></canvas>
@@ -200,7 +212,6 @@
         <p id="pad-status" style="font-size:13px; color:#cbb88a; margin:6px 0 10px 0;">Padrão: nenhum</p>
         <button type="button" onclick="limparPad()" class="btn-secundario">Limpar Traço</button>
 
-        <!-- Campo de senha opcional caso queira digitar/validar com o servidor -->
         <div id="area-senha-extra" style="display:none; margin-top:12px;">
             <input type="password" id="senha-input" placeholder="Digite a senha do painel">
             <button type="button" onclick="fazerLogin()" class="btn-dourado">Entrar</button>
@@ -209,7 +220,6 @@
         <p id="erro-login" style="color: #ff6b6b; margin-top: 10px;"></p>
     </div>
 
-    <!-- PAINEL DE MÉTRICAS E LEITURA -->
     <div id="tela-painel" class="box" style="display:none;">
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
         <h2>Painel do Studio</h2>
@@ -249,12 +259,12 @@
 
     <script>
         const META_CORACOES = 7;
-        const PADRAO_QUADRADO = "1-2-3-6-9-8-7-4-1";
+        const ORDEM_TRACO_DONA = "1-2-3-6-9-8-7-4";
         let telefoneAtual = "";
         let html5QrCode = null;
         let scannerRodando = false;
+        let autenticado = false;
 
-        // Controle do desbloqueio por arrasto
         let desenhando = false;
         let sequenciaPad = [];
         let ultimoPontoAtual = null;
@@ -264,6 +274,34 @@
         const canvas = document.getElementById('pad-canvas');
         const ctx = canvas.getContext('2d');
         const cells = Array.from(document.querySelectorAll('.pad-cell'));
+
+        function mostrarBloqueio(bloqueado) {
+            const telaBloqueio = document.getElementById('tela-bloqueio');
+            const telaLogin = document.getElementById('tela-login');
+            const telaPainel = document.getElementById('tela-painel');
+
+            if (bloqueado) {
+                pararScanner();
+                telaBloqueio.style.display = 'block';
+                telaLogin.style.display = 'none';
+                telaPainel.style.display = 'none';
+            } else {
+                telaBloqueio.style.display = 'none';
+                if (!autenticado) {
+                    telaLogin.style.display = 'block';
+                }
+            }
+        }
+
+        async function verificarStatus() {
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    mostrarBloqueio(data.ativo === false);
+                }
+            } catch (e) {}
+        }
 
         function getCentroCelula(cell) {
             const rectCell = cell.getBoundingClientRect();
@@ -362,14 +400,17 @@
             redesenharTraco(null);
 
             if (sequenciaPad.length < 3) {
-                document.getElementById('erro-login').innerText = "Arraste formando um quadrado.";
+                document.getElementById('erro-login').innerText = "Arraste pelos pontos na ordem correta.";
                 return;
             }
 
-            const padraoDesenhado = sequenciaPad.join('-');
+            const tracoFeito = sequenciaPad.join('-');
 
-            if (padraoDesenhado === PADRAO_QUADRADO) {
-                abrirPainelPrincipal();
+            if (tracoFeito === ORDEM_TRACO_DONA) {
+                await verificarStatus();
+                if (document.getElementById('tela-bloqueio').style.display !== 'block') {
+                    abrirPainelPrincipal();
+                }
                 return;
             }
 
@@ -377,10 +418,15 @@
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senha: padraoDesenhado, padrao: padraoDesenhado })
+                    body: JSON.stringify({ senha: tracoFeito })
                 });
-                const data = await res.json();
 
+                if (res.status === 403) {
+                    mostrarBloqueio(true);
+                    return;
+                }
+
+                const data = await res.json();
                 if (data.sucesso) {
                     abrirPainelPrincipal();
                     return;
@@ -389,7 +435,7 @@
 
             document.getElementById('area-senha-extra').style.display = 'block';
             document.getElementById('erro-login').innerText =
-                "Traço diferente do quadrado (1→2→3→6→9→8→7→4→1). Tente de novo ou use a senha abaixo.";
+                "Sequência incorreta. Tente novamente ou digite a senha abaixo.";
         }
 
         padWrapper.addEventListener('pointerup', finalizarArrasto);
@@ -402,8 +448,13 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ senha })
             });
-            const data = await res.json();
 
+            if (res.status === 403) {
+                mostrarBloqueio(true);
+                return;
+            }
+
+            const data = await res.json();
             if (data.sucesso) {
                 abrirPainelPrincipal();
             } else {
@@ -412,6 +463,7 @@
         }
 
         async function abrirPainelPrincipal() {
+            autenticado = true;
             document.getElementById('tela-login').style.display = 'none';
             document.getElementById('tela-painel').style.display = 'block';
             await atualizarMetricasClientes();
@@ -419,27 +471,6 @@
         }
 
         async function atualizarMetricasClientes() {
-            const rotasPossiveis = ['/api/clientes', '/api/stats'];
-            for (const rota of rotasPossiveis) {
-                try {
-                    const res = await fetch(rota);
-                    if (res.ok) {
-                        const dados = await res.json();
-                        if (Array.isArray(dados)) {
-                            dados.forEach(c => {
-                                if (c && c.telefone) mapaClientesLocal.set(String(c.telefone), Number(c.coracoes || 0));
-                            });
-                            renderizarContadores(dados.length, dados.filter(c => Number(c.coracoes || 0) >= META_CORACOES).length);
-                            return;
-                        }
-                        if (dados && typeof dados.totalClientes === 'number') {
-                            renderizarContadores(dados.totalClientes, Number(dados.clientesMeta || 0));
-                            return;
-                        }
-                    }
-                } catch (e) {}
-            }
-
             const valores = Array.from(mapaClientesLocal.values());
             renderizarContadores(valores.length, valores.filter(q => q >= META_CORACOES).length);
         }
@@ -478,9 +509,7 @@
                 try {
                     await html5QrCode.stop();
                     scannerRodando = false;
-                } catch (e) {
-                    console.log(e);
-                }
+                } catch (e) {}
             }
         }
 
@@ -492,6 +521,10 @@
 
         async function carregarPainelCliente(tel) {
             const res = await fetch(`/api/cliente/${encodeURIComponent(tel)}`);
+            if (res.status === 403) {
+                mostrarBloqueio(true);
+                return;
+            }
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
             const telFinal = String(data.telefone || tel);
@@ -514,6 +547,10 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ telefone: telefoneAtual, acao })
             });
+            if (res.status === 403) {
+                mostrarBloqueio(true);
+                return;
+            }
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
 
@@ -549,6 +586,8 @@
             document.getElementById('msg-completo').innerText = "";
             await iniciarScanner();
         }
+
+        verificarStatus();
     </script>
 </body>
 </html>
