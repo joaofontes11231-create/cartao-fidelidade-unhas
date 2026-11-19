@@ -45,11 +45,6 @@
             border: none;
             border-radius: 10px;
         }
-        .btn-dourado {
-            background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
-            color: #111;
-            width: 100%;
-        }
         .btn-voltar {
             background: #25252b;
             color: #f5d061;
@@ -128,16 +123,7 @@
         <div id="subaviso-bloqueio" class="subaviso-bloqueio" style="display:none;"></div>
     </div>
 
-    <div class="box" id="tela-login">
-        <h2>Clientes - Acesso do Painel</h2>
-        <p style="color:#cbb88a; font-size:14px;">Digite a senha do painel para ver as clientes:</p>
-        <input type="password" id="senha-painel" placeholder="Senha do painel">
-        <button type="button" class="btn-dourado" onclick="entrar()">Entrar</button>
-        <button type="button" class="btn-voltar" onclick="window.location.href='admin.html'">Voltar ao Scanner</button>
-        <p id="erro-login" style="color:#ff6b6b; margin-top:10px;"></p>
-    </div>
-
-    <div class="box" id="tela-clientes" style="display:none;">
+    <div class="box" id="tela-clientes">
         <h2>Todas as Clientes</h2>
         <input type="text" id="busca-cliente" placeholder="Buscar por nome ou telefone..." oninput="filtrarClientes()">
         <div class="lista-clientes" id="lista-clientes"></div>
@@ -159,7 +145,7 @@
 
     <script>
         const META_CORACOES = 7;
-        let tokenAdmin = '';
+        const TEXTO_VOLTA = 'Em breve nós voltamos';
         let clientesCache = [];
         let clienteSelecionado = null;
 
@@ -169,91 +155,54 @@
             return div.innerHTML;
         }
 
-        function mostrarBloqueio(bloqueado, motivo = '', subaviso = '') {
+        function mostrarBloqueio(bloqueado, motivo = '') {
             const b = document.getElementById('tela-bloqueio');
-            const l = document.getElementById('tela-login');
             const c = document.getElementById('tela-clientes');
             const m = document.getElementById('motivo-bloqueio');
             const s = document.getElementById('subaviso-bloqueio');
 
             if (bloqueado) {
                 b.style.display = 'block';
-                l.style.display = 'none';
                 c.style.display = 'none';
                 m.style.display = motivo ? 'block' : 'none';
                 m.innerText = motivo || '';
-                s.style.display = subaviso ? 'block' : 'none';
-                s.innerText = subaviso || '';
+                s.style.display = 'block';
+                s.innerText = TEXTO_VOLTA;
             } else {
                 b.style.display = 'none';
-                if (!tokenAdmin) l.style.display = 'block';
-            }
-        }
-
-        async function verificarStatus() {
-            try {
-                const res = await fetch('/api/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    mostrarBloqueio(data.ativo === false, data.motivo || '', data.subaviso || '');
-                }
-            } catch (e) {}
-        }
-
-        async function entrar() {
-            const senha = document.getElementById('senha-painel').value;
-            const erro = document.getElementById('erro-login');
-            erro.innerText = '';
-
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senha })
-                });
-
-                if (res.status === 403) {
-                    const d = await res.json().catch(() => ({}));
-                    mostrarBloqueio(true, d.motivo || '', d.subaviso || '');
-                    return;
-                }
-
-                const data = await res.json();
-                if (!data.sucesso || !data.token) {
-                    erro.innerText = data.erro || 'Senha incorreta!';
-                    return;
-                }
-
-                tokenAdmin = data.token;
-                document.getElementById('tela-login').style.display = 'none';
-                document.getElementById('tela-clientes').style.display = 'block';
-                await carregarClientes();
-            } catch (e) {
-                erro.innerText = 'Falha ao conectar.';
+                c.style.display = 'block';
             }
         }
 
         async function carregarClientes() {
-            const res = await fetch('/api/clientes', {
-                headers: { 'Authorization': `Bearer ${tokenAdmin}` }
-            });
-            if (res.status === 403) {
-                const d = await res.json().catch(() => ({}));
-                mostrarBloqueio(true, d.motivo || '', d.subaviso || '');
-                return;
-            }
-            if (res.ok) {
-                const lista = await res.json();
-                clientesCache = Array.isArray(lista) ? lista : [];
-                filtrarClientes();
+            try {
+                const statusRes = await fetch('/api/status');
+                if (statusRes.ok) {
+                    const st = await statusRes.json();
+                    if (st.ativo === false) {
+                        mostrarBloqueio(true, st.motivo || '');
+                        return;
+                    }
+                    mostrarBloqueio(false);
+                }
 
-                if (clienteSelecionado) {
-                    const atualizada = clientesCache.find(x => String(x.telefone) === String(clienteSelecionado.telefone));
-                    if (atualizada) {
-                        selecionarCliente(atualizada);
+                const res = await fetch('/api/clientes');
+                if (res.status === 403) {
+                    const d = await res.json().catch(() => ({}));
+                    mostrarBloqueio(true, d.motivo || '');
+                    return;
+                }
+                if (res.ok) {
+                    const lista = await res.json();
+                    clientesCache = Array.isArray(lista) ? lista : [];
+                    filtrarClientes();
+
+                    if (clienteSelecionado) {
+                        const atualizada = clientesCache.find(x => String(x.telefone) === String(clienteSelecionado.telefone));
+                        if (atualizada) selecionarCliente(atualizada);
                     }
                 }
-            }
+            } catch (e) {}
         }
 
         function filtrarClientes() {
@@ -323,7 +272,7 @@
             });
             if (res.status === 403) {
                 const d = await res.json().catch(() => ({}));
-                mostrarBloqueio(true, d.motivo || '', d.subaviso || '');
+                mostrarBloqueio(true, d.motivo || '');
                 return;
             }
             const atualizada = await res.json();
@@ -331,7 +280,7 @@
             await carregarClientes();
         }
 
-        verificarStatus();
+        carregarClientes();
     </script>
 </body>
 </html>
