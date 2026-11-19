@@ -103,9 +103,24 @@
             font-size: 15px;
             margin-top: 10px;
         }
+        .aviso-bloqueio {
+            color: #ef9a9a;
+            background: rgba(198, 40, 40, 0.16);
+            border: 1px solid rgba(198, 40, 40, 0.45);
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
+
+    <div class="card" id="tela-bloqueio" style="display:none;">
+        <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
+        <h2 class="studio-nome">Studio Brendha Elias</h2>
+        <div class="aviso-bloqueio">Acesso temporariamente suspenso.</div>
+    </div>
 
     <div class="card" id="tela-cadastro">
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
@@ -132,8 +147,40 @@
         const META_CORACOES = 7;
         let telefoneClienteAtual = "";
         let intervaloAtualizacao = null;
+        let siteBloqueado = false;
+
+        function aplicarEstadoBloqueio(bloqueado) {
+            siteBloqueado = Boolean(bloqueado);
+            const telaBloqueio = document.getElementById('tela-bloqueio');
+            const telaCadastro = document.getElementById('tela-cadastro');
+            const telaCartao = document.getElementById('tela-cartao');
+
+            if (siteBloqueado) {
+                telaBloqueio.style.display = 'block';
+                telaCadastro.style.display = 'none';
+                telaCartao.style.display = 'none';
+            } else {
+                telaBloqueio.style.display = 'none';
+                if (!telefoneClienteAtual) {
+                    telaCadastro.style.display = 'block';
+                }
+            }
+        }
+
+        async function verificarStatusSite() {
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    aplicarEstadoBloqueio(data.ativo === false);
+                }
+            } catch (e) {}
+        }
 
         async function gerarCartao() {
+            await verificarStatusSite();
+            if (siteBloqueado) return;
+
             const nome = document.getElementById('nome-input').value.trim();
             const telefone = document.getElementById('tel-input').value.trim();
 
@@ -149,6 +196,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nome, telefone })
             });
+
+            if (res.status === 403) {
+                aplicarEstadoBloqueio(true);
+                return;
+            }
+
             const data = await res.json();
 
             document.getElementById('tela-cadastro').style.display = 'none';
@@ -197,16 +250,22 @@
             intervaloAtualizacao = setInterval(async () => {
                 try {
                     const res = await fetch(`/api/cliente/${encodeURIComponent(telefoneClienteAtual)}`);
+                    if (res.status === 403) {
+                        aplicarEstadoBloqueio(true);
+                        return;
+                    }
                     const data = await res.json();
+                    aplicarEstadoBloqueio(false);
+                    document.getElementById('tela-cartao').style.display = 'block';
 
                     if (data && data.coracoes !== undefined) {
                         atualizarVisualCartao(data);
                     }
-                } catch (e) {
-                    console.log("Aguardando atualização...");
-                }
+                } catch (e) {}
             }, 2000);
         }
+
+        verificarStatusSite();
     </script>
 </body>
 </html>
