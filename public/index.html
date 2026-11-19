@@ -132,7 +132,7 @@
         <h2 class="studio-nome">Studio Brendha Elias</h2>
         <div class="aviso-bloqueio">Acesso temporariamente suspenso.</div>
         <div id="motivo-bloqueio" class="motivo-bloqueio" style="display:none;"></div>
-        <div id="subaviso-bloqueio" class="subaviso-bloqueio" style="display:none;"></div>
+        <div id="subaviso-bloqueio" class="subaviso-bloqueio">Em breve nós voltamos</div>
     </div>
 
     <div class="card" id="tela-cadastro">
@@ -158,11 +158,12 @@
 
     <script>
         const META_CORACOES = 7;
+        const TEXTO_VOLTA = "Em breve nós voltamos";
         let telefoneClienteAtual = "";
         let intervaloAtualizacao = null;
         let siteBloqueado = false;
 
-        function aplicarEstadoBloqueio(bloqueado, motivo = '', subaviso = '') {
+        function aplicarEstadoBloqueio(bloqueado, motivo = '') {
             siteBloqueado = Boolean(bloqueado);
             const telaBloqueio = document.getElementById('tela-bloqueio');
             const telaCadastro = document.getElementById('tela-cadastro');
@@ -183,13 +184,8 @@
                     motivoEl.style.display = 'none';
                 }
 
-                if (subaviso) {
-                    subavisoEl.innerText = subaviso;
-                    subavisoEl.style.display = 'block';
-                } else {
-                    subavisoEl.innerText = '';
-                    subavisoEl.style.display = 'none';
-                }
+                subavisoEl.innerText = TEXTO_VOLTA;
+                subavisoEl.style.display = 'block';
             } else {
                 telaBloqueio.style.display = 'none';
                 if (!telefoneClienteAtual) {
@@ -203,7 +199,7 @@
                 const res = await fetch('/api/status');
                 if (res.ok) {
                     const data = await res.json();
-                    aplicarEstadoBloqueio(data.ativo === false, data.motivo || '', data.subaviso || '');
+                    aplicarEstadoBloqueio(data.ativo === false, data.motivo || '');
                 }
             } catch (e) {}
         }
@@ -230,7 +226,7 @@
 
             if (res.status === 403) {
                 const errData = await res.json().catch(() => ({}));
-                aplicarEstadoBloqueio(true, errData.motivo || '', errData.subaviso || '');
+                aplicarEstadoBloqueio(true, errData.motivo || '');
                 return;
             }
 
@@ -284,7 +280,7 @@
                     const res = await fetch(`/api/cliente/${encodeURIComponent(telefoneClienteAtual)}`);
                     if (res.status === 403) {
                         const errData = await res.json().catch(() => ({}));
-                        aplicarEstadoBloqueio(true, errData.motivo || '', errData.subaviso || '');
+                        aplicarEstadoBloqueio(true, errData.motivo || '');
                         return;
                     }
                     const data = await res.json();
