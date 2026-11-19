@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const crypto = require('crypto');
 const path = require('path');
 
 const app = express();
@@ -17,6 +18,17 @@ mongoose.connect(MONGO_URI)
     .then(() => console.log('Banco de dados conectado com sucesso!'))
     .catch(() => console.log('Erro de conexão com o banco.'));
 
+const tokensAdmin = new Set();
+
+function autorizarAdmin(req, res, next) {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+    if (!token || !tokensAdmin.has(token)) {
+        return res.status(401).json({ sucesso: false, erro: 'Acesso não autorizado.' });
+    }
+    next();
+}
+
 // Modelo do Cliente (nunca apagado ao bloquear ou desbloquear)
 const Cliente = mongoose.model('Cliente', {
     telefone: String,
@@ -28,13 +40,15 @@ const Cliente = mongoose.model('Cliente', {
 // Modelo de Licença do Site
 const Licenca = mongoose.model('Licenca', {
     chave: { type: String, unique: true },
-    ativo: { type: Boolean, default: true }
+    ativo: { type: Boolean, default: true },
+    motivo: { type: String, default: '' },
+    subaviso: { type: String, default: '' }
 });
 
 async function obterLicenca() {
     let doc = await Licenca.findOne({ chave: 'studio_brendha' });
     if (!doc) {
-        doc = await Licenca.create({ chave: 'studio_brendha', ativo: true });
+        doc = await Licenca.create({ chave: 'studio_brendha', ativo: true, motivo: '', subaviso: '' });
     }
     return doc;
 }
@@ -47,7 +61,9 @@ async function verificarLicenca(req, res, next) {
             return res.status(403).json({
                 sucesso: false,
                 bloqueado: true,
-                mensagem: 'Acesso temporariamente suspenso.'
+                mensagem: 'Acesso temporariamente suspenso.',
+                motivo: licenca.motivo || '',
+                subaviso: licenca.subaviso || ''
             });
         }
         next();
@@ -59,13 +75,18 @@ async function verificarLicenca(req, res, next) {
     }
 }
 
-// Status público mínimo (apenas indica se está ativo ou bloqueado)
+// Status público (indica se está ativo/bloqueado e o motivo configurado)
 app.get('/api/status', async (req, res) => {
     try {
         const licenca = await obterLicenca();
-        res.json({ online: true, ativo: Boolean(licenca.ativo) });
+        res.json({
+            online: true,
+            ativo: Boolean(licenca.ativo),
+            motivo: licenca.ativo ? '' : (licenca.motivo || ''),
+            subaviso: licenca.ativo ? '' : (licenca.subaviso || '')
+        });
     } catch (e) {
-        res.status(503).json({ online: false, ativo: false });
+        res.status(503).json({ online: false, ativo: false, motivo: '', subaviso: '' });
     }
 });
 
@@ -73,9 +94,24 @@ app.get('/api/status', async (req, res) => {
 app.post('/api/login', verificarLicenca, (req, res) => {
     const { senha } = req.body || {};
     if (typeof senha === 'string' && senha === SENHA_ADMIN) {
-        return res.json({ sucesso: true });
+        const token = crypto.randomBytes(24).toString('hex');
+        tokensAdmin.add(token);
+        return res.json({ sucesso: true, token });
     }
     return res.status(401).json({ sucesso: false, erro: 'Senha incorreta!' });
+});
+
+// Listar clientes para a administradora
+app.get('/api/clientes', verificarLicenca, autorizarAdmin, async (req, res) => {
+    try {
+        const clientes = await Cliente.find(
+            {},
+            { _id: 0, nome: 1, telefone: 1, coracoes: 1, maxCoracoes: 1 }
+        ).sort({ nome: 1 });
+        res.json(clientes);
+    } catch (e) {
+        res.status(500).json({ erro: 'Erro ao buscar clientes.' });
+    }
 });
 
 // Buscar cliente
@@ -148,6 +184,8 @@ app.post('/api/mestre/painel', autorizarMestre, async (req, res) => {
                 nome: 'Studio Brendha Elias',
                 online: mongoose.connection.readyState === 1,
                 ativo: Boolean(licenca.ativo),
+                motivo: licenca.motivo || '',
+                subaviso: licenca.subaviso || '',
                 metaCoracoes: 7
             },
             resumo: {
@@ -161,17 +199,29 @@ app.post('/api/mestre/painel', autorizarMestre, async (req, res) => {
     }
 });
 
-// Alternar bloqueio / desbloqueio do site (sem apagar nenhum cliente)
+// Alternar bloqueio / desbloqueio do site com motivo opcional
 app.post('/api/mestre/alternar', autorizarMestre, async (req, res) => {
     try {
-        const { ativo } = req.body || {};
+        const { ativo, motivo, subaviso } = req.body || {};
         const licenca = await obterLicenca();
-        licenca.ativo = typeof ativo === 'boolean' ? ativo : !licenca.ativo;
+        const proximoAtivo = typeof ativo === 'boolean' ? ativo : !licenca.ativo;
+        licenca.ativo = proximoAtivo;
+
+        if (!proximoAtivo) {
+            licenca.motivo = typeof motivo === 'string' ? motivo.trim() : (licenca.motivo || '');
+            licenca.subaviso = typeof subaviso === 'string' ? subaviso.trim() : '';
+        } else {
+            licenca.motivo = '';
+            licenca.subaviso = '';
+        }
+
         await licenca.save();
 
         res.json({
             sucesso: true,
             ativo: Boolean(licenca.ativo),
+            motivo: licenca.motivo || '',
+            subaviso: licenca.subaviso || '',
             mensagem: licenca.ativo ? 'Site desbloqueado.' : 'Site bloqueado.'
         });
     } catch (e) {
