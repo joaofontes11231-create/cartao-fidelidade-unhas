@@ -188,8 +188,12 @@
                 subavisoEl.style.display = 'block';
             } else {
                 telaBloqueio.style.display = 'none';
-                if (!telefoneClienteAtual) {
+                if (telefoneClienteAtual) {
+                    telaCartao.style.display = 'block';
+                    telaCadastro.style.display = 'none';
+                } else {
                     telaCadastro.style.display = 'block';
+                    telaCartao.style.display = 'none';
                 }
             }
         }
@@ -276,6 +280,7 @@
             if (intervaloAtualizacao) clearInterval(intervaloAtualizacao);
 
             intervaloAtualizacao = setInterval(async () => {
+                if (siteBloqueado) return;
                 try {
                     const res = await fetch(`/api/cliente/${encodeURIComponent(telefoneClienteAtual)}`);
                     if (res.status === 403) {
@@ -284,9 +289,6 @@
                         return;
                     }
                     const data = await res.json();
-                    aplicarEstadoBloqueio(false);
-                    document.getElementById('tela-cartao').style.display = 'block';
-
                     if (data && data.coracoes !== undefined) {
                         atualizarVisualCartao(data);
                     }
@@ -295,6 +297,7 @@
         }
 
         verificarStatusSite();
+        setInterval(verificarStatusSite, 2000);
     </script>
 </body>
 </html>
