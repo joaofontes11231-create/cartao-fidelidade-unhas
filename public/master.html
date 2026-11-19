@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle do Sistema</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+            background: #0b0b0d;
+            color: #f5e6c4;
+        }
+        .box {
+            background: #141417;
+            border: 1px solid rgba(212, 175, 55, 0.45);
+            padding: 24px 20px;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 390px;
+            margin: 24px auto;
+        }
+        h2 { color: #e5c158; margin-top: 0; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            background: #0d0d10;
+            color: #fff;
+            font-size: 15px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-ouro {
+            background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
+            color: #111;
+        }
+        .btn-bloquear {
+            background: #c62828;
+            color: #fff;
+        }
+        .btn-desbloquear {
+            background: #2e7d32;
+            color: #fff;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-weight: bold;
+            margin: 10px 0 16px 0;
+            font-size: 14px;
+        }
+        .ativo { background: rgba(46, 125, 50, 0.25); color: #81c784; border: 1px solid #2e7d32; }
+        .bloqueado { background: rgba(198, 40, 40, 0.25); color: #ef9a9a; border: 1px solid #c62828; }
+        #msg { margin-top: 12px; font-size: 14px; color: #f5d061; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="box" id="login-box">
+        <h2>Acesso do Proprietário</h2>
+        <input type="password" id="chave-mestra" placeholder="Chave de acesso">
+        <button type="button" class="btn-ouro" onclick="entrarMestre()">Entrar</button>
+        <p id="msg"></p>
+    </div>
+
+    <div class="box" id="painel-box" style="display:none;">
+        <h2>Controle do Site</h2>
+        <div id="badge-status" class="status-badge">Carregando...</div>
+        <p style="font-size:13px; color:#cbb88a;">Os dados de clientes e corações permanecem salvos no banco em qualquer estado.</p>
+
+        <button type="button" id="btn-acao" onclick="alternarBloqueio()">...</button>
+        <p id="msg-painel" style="margin-top:12px; font-size:14px; color:#f5d061;"></p>
+    </div>
+
+    <script>
+        let chaveAtual = '';
+        let estadoAtual = true;
+
+        async function entrarMestre() {
+            const chave = document.getElementById('chave-mestra').value.trim();
+            const msg = document.getElementById('msg');
+            if (!chave) {
+                msg.innerText = 'Informe a chave.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/mestre/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senhaMestra: chave })
+                });
+                const data = await res.json();
+                if (data.sucesso) {
+                    chaveAtual = chave;
+                    estadoAtual = Boolean(data.ativo);
+                    document.getElementById('login-box').style.display = 'none';
+                    document.getElementById('painel-box').style.display = 'block';
+                    renderEstado();
+                } else {
+                    msg.innerText = data.erro || 'Acesso negado.';
+                }
+            } catch (e) {
+                msg.innerText = 'Falha na comunicação.';
+            }
+        }
+
+        function renderEstado() {
+            const badge = document.getElementById('badge-status');
+            const btn = document.getElementById('btn-acao');
+            if (estadoAtual) {
+                badge.textContent = 'STATUS: ATIVO';
+                badge.className = 'status-badge ativo';
+                btn.textContent = 'Bloquear Site';
+                btn.className = 'btn-bloquear';
+            } else {
+                badge.textContent = 'STATUS: BLOQUEADO';
+                badge.className = 'status-badge bloqueado';
+                btn.textContent = 'Desbloquear Site';
+                btn.className = 'btn-desbloquear';
+            }
+        }
+
+        async function alternarBloqueio() {
+            const msgPainel = document.getElementById('msg-painel');
+            try {
+                const res = await fetch('/api/mestre/alternar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senhaMestra: chaveAtual, ativo: !estadoAtual })
+                });
+                const data = await res.json();
+                if (data.sucesso) {
+                    estadoAtual = Boolean(data.ativo);
+                    renderEstado();
+                    msgPainel.innerText = data.mensagem || 'Atualizado.';
+                } else {
+                    msgPainel.innerText = data.erro || 'Erro ao atualizar.';
+                }
+            } catch (e) {
+                msgPainel.innerText = 'Falha na comunicação.';
+            }
+        }
+    </script>
+</body>
+</html>
