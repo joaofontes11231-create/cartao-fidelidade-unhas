@@ -179,6 +179,44 @@ app.post('/api/mestre/alternar', autorizarMestre, async (req, res) => {
     }
 });
 
+// Adicionar coração, remover coração ou deletar cliente (apenas com senha mestra)
+app.post('/api/mestre/cliente', autorizarMestre, async (req, res) => {
+    try {
+        const { telefone, acao } = req.body || {};
+        if (!telefone || !acao) {
+            return res.status(400).json({ sucesso: false, erro: 'Dados incompletos.' });
+        }
+
+        const telLimpo = String(telefone).trim();
+        const cliente = await Cliente.findOne({ telefone: telLimpo });
+
+        if (!cliente) {
+            return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado.' });
+        }
+
+        if (acao === 'deletar') {
+            await Cliente.deleteOne({ _id: cliente._id });
+            return res.json({ sucesso: true, mensagem: 'Cliente removido.' });
+        }
+
+        const limite = Number(cliente.maxCoracoes || 7);
+        if (acao === 'adicionar' && cliente.coracoes < limite) {
+            cliente.coracoes += 1;
+        } else if (acao === 'remover' && cliente.coracoes > 0) {
+            cliente.coracoes -= 1;
+        }
+
+        await cliente.save();
+        res.json({
+            sucesso: true,
+            mensagem: acao === 'adicionar' ? 'Coração adicionado.' : 'Coração removido.',
+            coracoes: cliente.coracoes
+        });
+    } catch (e) {
+        res.status(500).json({ sucesso: false, erro: 'Falha ao atualizar cliente.' });
+    }
+});
+
 // Página do painel master
 app.get('/master', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'master.html'));
