@@ -6,7 +6,7 @@
     <title>Studio Brendha Elias - Painel</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
             text-align: center;
@@ -22,7 +22,7 @@
             padding: 24px 20px;
             border-radius: 18px;
             width: 100%;
-            max-width: 400px;
+            max-width: 410px;
             margin: 16px auto;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(212, 175, 55, 0.12);
         }
@@ -48,6 +48,79 @@
             overflow: hidden;
             border: 1px solid rgba(212, 175, 55, 0.35);
         }
+
+        /* Área de desbloqueio arrastando o dedo */
+        .pad-wrapper {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin: 14px auto;
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            border-radius: 16px;
+            touch-action: none;
+        }
+        .pad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 2;
+        }
+        .pad-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pad-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2a261f;
+            border: 2px solid rgba(212, 175, 55, 0.5);
+            transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        }
+        .pad-dot.ativo {
+            background: #f5d061;
+            transform: scale(1.25);
+            box-shadow: 0 0 12px rgba(245, 208, 97, 0.85);
+        }
+        #pad-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Painel de métricas */
+        .metricas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 14px 0 18px 0;
+        }
+        .metrica-card {
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 12px;
+            padding: 12px 10px;
+        }
+        .metrica-valor {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f5d061;
+            display: block;
+        }
+        .metrica-label {
+            font-size: 12px;
+            color: #cbb88a;
+            margin-top: 4px;
+            display: block;
+        }
+
         button {
             padding: 11px 16px;
             font-size: 15px;
@@ -60,6 +133,12 @@
         .btn-dourado {
             background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
             color: #111;
+            width: 100%;
+        }
+        .btn-secundario {
+            background: #25252b;
+            color: #f5d061;
+            border: 1px solid rgba(212, 175, 55, 0.4);
             width: 100%;
         }
         .btn-add {
@@ -77,10 +156,10 @@
             width: 100%;
         }
         input {
-            padding: 12px 14px;
-            font-size: 16px;
+            padding: 11px 14px;
+            font-size: 15px;
             width: 100%;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             background: #0d0d10;
             color: #fff;
             border: 1px solid rgba(212, 175, 55, 0.4);
@@ -97,20 +176,56 @@
 </head>
 <body>
 
-    <!-- TELA DE LOGIN EXCLUSIVA -->
+    <!-- TELA DE LOGIN COM DESBLOQUEIO POR ARRASTAR O DEDO -->
     <div id="tela-login" class="box">
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
         <h2>Studio Brendha Elias</h2>
-        <p style="color:#cbb88a; margin-top:0;">Digite sua senha de acesso:</p>
-        <input type="password" id="senha-input" placeholder="Senha">
-        <button onclick="fazerLogin()" class="btn-dourado">Entrar</button>
+        <p style="color:#cbb88a; margin:0 0 8px 0; font-size:14px;">Arraste o dedo pelos pontos para desbloquear:</p>
+
+        <div class="pad-wrapper" id="pad-wrapper">
+            <canvas id="pad-canvas" width="240" height="240"></canvas>
+            <div class="pad-grid" id="pad-grid">
+                <div class="pad-cell" data-idx="1"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="2"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="3"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="4"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="5"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="6"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="7"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="8"><div class="pad-dot"></div></div>
+                <div class="pad-cell" data-idx="9"><div class="pad-dot"></div></div>
+            </div>
+        </div>
+
+        <p id="pad-status" style="font-size:13px; color:#cbb88a; margin:6px 0 10px 0;">Padrão: nenhum</p>
+        <button type="button" onclick="limparPad()" class="btn-secundario">Limpar Traço</button>
+
+        <!-- Campo de senha opcional caso queira digitar/validar com o servidor -->
+        <div id="area-senha-extra" style="display:none; margin-top:12px;">
+            <input type="password" id="senha-input" placeholder="Digite a senha do painel">
+            <button type="button" onclick="fazerLogin()" class="btn-dourado">Entrar</button>
+        </div>
+
         <p id="erro-login" style="color: #ff6b6b; margin-top: 10px;"></p>
     </div>
 
-    <!-- PAINEL DE LEITURA -->
+    <!-- PAINEL DE MÉTRICAS E LEITURA -->
     <div id="tela-painel" class="box" style="display:none;">
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
-        <h2>Escanear Cliente</h2>
+        <h2>Painel do Studio</h2>
+
+        <div class="metricas-grid">
+            <div class="metrica-card">
+                <span class="metrica-valor" id="total-clientes">0</span>
+                <span class="metrica-label">Clientes com cartão</span>
+            </div>
+            <div class="metrica-card">
+                <span class="metrica-valor" id="clientes-meta">0</span>
+                <span class="metrica-label">Meta de 7 concluída</span>
+            </div>
+        </div>
+
+        <h3 style="color:#e5c158; margin:8px 0 6px 0; font-size:18px;">Escanear Cliente</h3>
         <div id="reader"></div>
         <p id="erro-camera" style="color:#ff6b6b; font-size:13px;"></p>
 
@@ -122,13 +237,13 @@
             <div id="grid-coracoes-admin" style="margin: 14px 0; font-size: 26px;"></div>
 
             <div>
-                <button onclick="alterarCoracao('adicionar')" class="btn-add">➕ Dar Coração</button>
-                <button onclick="alterarCoracao('remover')" class="btn-rem">➖ Remover</button>
+                <button type="button" onclick="alterarCoracao('adicionar')" class="btn-add">➕ Dar Coração</button>
+                <button type="button" onclick="alterarCoracao('remover')" class="btn-rem">➖ Remover</button>
             </div>
 
             <p id="msg-completo"></p>
 
-            <button onclick="reiniciarScanner()" class="btn-scan">📷 Escanear Outro</button>
+            <button type="button" onclick="reiniciarScanner()" class="btn-scan">📷 Escanear Outro</button>
         </div>
     </div>
 
@@ -137,6 +252,140 @@
         let telefoneAtual = "";
         let html5QrCode = null;
         let scannerRodando = false;
+
+        // Controle do desbloqueio por arrasto
+        let desenhando = false;
+        let sequenciaPad = [];
+        let ultimoPontoAtual = null;
+        const mapaClientesLocal = new Map();
+
+        const padWrapper = document.getElementById('pad-wrapper');
+        const canvas = document.getElementById('pad-canvas');
+        const ctx = canvas.getContext('2d');
+        const cells = Array.from(document.querySelectorAll('.pad-cell'));
+
+        function getCentroCelula(cell) {
+            const rectCell = cell.getBoundingClientRect();
+            const rectPad = padWrapper.getBoundingClientRect();
+            return {
+                x: rectCell.left - rectPad.left + rectCell.width / 2,
+                y: rectCell.top - rectPad.top + rectCell.height / 2
+            };
+        }
+
+        function redesenharTraco(pontoExtra = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (sequenciaPad.length === 0) return;
+
+            ctx.beginPath();
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = 'rgba(245, 208, 97, 0.85)';
+
+            sequenciaPad.forEach((idx, i) => {
+                const cell = cells.find(c => c.dataset.idx === String(idx));
+                const centro = getCentroCelula(cell);
+                if (i === 0) ctx.moveTo(centro.x, centro.y);
+                else ctx.lineTo(centro.x, centro.y);
+            });
+
+            if (pontoExtra) {
+                ctx.lineTo(pontoExtra.x, pontoExtra.y);
+            }
+            ctx.stroke();
+        }
+
+        function detectarCelulaPorCoordenada(clientX, clientY) {
+            for (const cell of cells) {
+                const rect = cell.getBoundingClientRect();
+                const margem = 10;
+                if (
+                    clientX >= rect.left - margem &&
+                    clientX <= rect.right + margem &&
+                    clientY >= rect.top - margem &&
+                    clientY <= rect.bottom + margem
+                ) {
+                    return cell;
+                }
+            }
+            return null;
+        }
+
+        function adicionarPontoPad(cell) {
+            const idx = cell.dataset.idx;
+            if (!sequenciaPad.includes(idx)) {
+                sequenciaPad.push(idx);
+                cell.querySelector('.pad-dot').classList.add('ativo');
+                document.getElementById('pad-status').innerText = `Traço: ${sequenciaPad.join(' → ')}`;
+                redesenharTraco(ultimoPontoAtual);
+            }
+        }
+
+        function limparPad() {
+            sequenciaPad = [];
+            ultimoPontoAtual = null;
+            cells.forEach(c => c.querySelector('.pad-dot').classList.remove('ativo'));
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('pad-status').innerText = "Padrão: nenhum";
+            document.getElementById('erro-login').innerText = "";
+        }
+
+        padWrapper.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            limparPad();
+            desenhando = true;
+            padWrapper.setPointerCapture(e.pointerId);
+
+            const rectPad = padWrapper.getBoundingClientRect();
+            ultimoPontoAtual = { x: e.clientX - rectPad.left, y: e.clientY - rectPad.top };
+
+            const cell = detectarCelulaPorCoordenada(e.clientX, e.clientY);
+            if (cell) adicionarPontoPad(cell);
+        });
+
+        padWrapper.addEventListener('pointermove', (e) => {
+            if (!desenhando) return;
+            const rectPad = padWrapper.getBoundingClientRect();
+            ultimoPontoAtual = { x: e.clientX - rectPad.left, y: e.clientY - rectPad.top };
+
+            const cell = detectarCelulaPorCoordenada(e.clientX, e.clientY);
+            if (cell) adicionarPontoPad(cell);
+            redesenharTraco(ultimoPontoAtual);
+        });
+
+        async function finalizarArrasto() {
+            if (!desenhando) return;
+            desenhando = false;
+            ultimoPontoAtual = null;
+            redesenharTraco(null);
+
+            if (sequenciaPad.length < 3) {
+                document.getElementById('erro-login').innerText = "Arraste por pelo menos 3 pontos.";
+                return;
+            }
+
+            // Envia o padrão desenhado como senha para /api/login
+            const padraoSenha = sequenciaPad.join('-');
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senha: padraoSenha, padrao: padraoSenha })
+            });
+            const data = await res.json();
+
+            if (data.sucesso) {
+                abrirPainelPrincipal();
+            } else {
+                // Exibe campo de senha caso o servidor use senha textual diferente do traço
+                document.getElementById('area-senha-extra').style.display = 'block';
+                document.getElementById('erro-login').innerText =
+                    "Traço não aceito como senha direta. Digite a senha abaixo ou tente outro traço.";
+            }
+        }
+
+        padWrapper.addEventListener('pointerup', finalizarArrasto);
+        padWrapper.addEventListener('pointercancel', finalizarArrasto);
 
         async function fazerLogin() {
             const senha = document.getElementById('senha-input').value;
@@ -148,12 +397,50 @@
             const data = await res.json();
 
             if (data.sucesso) {
-                document.getElementById('tela-login').style.display = 'none';
-                document.getElementById('tela-painel').style.display = 'block';
-                iniciarScanner();
+                abrirPainelPrincipal();
             } else {
                 document.getElementById('erro-login').innerText = "Senha incorreta!";
             }
+        }
+
+        async function abrirPainelPrincipal() {
+            document.getElementById('tela-login').style.display = 'none';
+            document.getElementById('tela-painel').style.display = 'block';
+            await atualizarMetricasClientes();
+            iniciarScanner();
+        }
+
+        async function atualizarMetricasClientes() {
+            // Tenta buscar lista de clientes no backend se existir uma rota disponível
+            const rotasPossiveis = ['/api/clientes', '/api/stats'];
+            for (const rota of rotasPossiveis) {
+                try {
+                    const res = await fetch(rota);
+                    if (res.ok) {
+                        const dados = await res.json();
+                        if (Array.isArray(dados)) {
+                            dados.forEach(c => {
+                                if (c && c.telefone) mapaClientesLocal.set(String(c.telefone), Number(c.coracoes || 0));
+                            });
+                            renderizarContadores(dados.length, dados.filter(c => Number(c.coracoes || 0) >= META_CORACOES).length);
+                            return;
+                        }
+                        if (dados && typeof dados.totalClientes === 'number') {
+                            renderizarContadores(dados.totalClientes, Number(dados.clientesMeta || 0));
+                            return;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // Fallback local caso ainda não haja rota de listagem no server.js
+            const valores = Array.from(mapaClientesLocal.values());
+            renderizarContadores(valores.length, valores.filter(q => q >= META_CORACOES).length);
+        }
+
+        function renderizarContadores(total, concluidos) {
+            document.getElementById('total-clientes').innerText = total;
+            document.getElementById('clientes-meta').innerText = concluidos;
         }
 
         async function iniciarScanner() {
@@ -168,7 +455,7 @@
 
             try {
                 await html5QrCode.start(
-                    { facingMode: "environment" }, // Força apenas câmera traseira
+                    { facingMode: "environment" },
                     { fps: 10, qrbox: { width: 220, height: 220 } },
                     onScanSuccess,
                     () => {}
@@ -201,9 +488,13 @@
             const res = await fetch(`/api/cliente/${encodeURIComponent(tel)}`);
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
+            const telFinal = String(data.telefone || tel);
+
+            mapaClientesLocal.set(telFinal, coracoes);
+            await atualizarMetricasClientes();
 
             document.getElementById('info-nome').innerText = `Cliente: ${data.nome || 'Cliente'}`;
-            document.getElementById('info-tel').innerText = data.telefone || tel;
+            document.getElementById('info-tel').innerText = telFinal;
             document.getElementById('qtd-coracoes').innerText = coracoes;
             atualizarVisualAdmin(coracoes, META_CORACOES);
 
@@ -219,6 +510,9 @@
             });
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
+
+            mapaClientesLocal.set(String(telefoneAtual), coracoes);
+            await atualizarMetricasClientes();
 
             document.getElementById('qtd-coracoes').innerText = coracoes;
             atualizarVisualAdmin(coracoes, META_CORACOES);
