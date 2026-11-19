@@ -119,6 +119,27 @@
             display: block;
         }
 
+        .lista-clientes-admin {
+            margin-top: 14px;
+            text-align: left;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .cliente-linha {
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.24);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .cliente-linha-nome { font-weight: bold; color: #fff; font-size: 14px; display: block; }
+        .cliente-linha-tel { color: #cbb88a; font-size: 12px; display: block; }
+        .cliente-linha-pts { color: #f5d061; font-weight: bold; font-size: 14px; white-space: nowrap; }
+
         button {
             padding: 11px 16px;
             font-size: 15px;
@@ -255,6 +276,9 @@
 
             <button type="button" onclick="reiniciarScanner()" class="btn-scan">📷 Escanear Outro</button>
         </div>
+
+        <h3 style="color:#e5c158; margin:18px 0 8px 0; font-size:17px;">Clientes Cadastrados</h3>
+        <div class="lista-clientes-admin" id="lista-clientes-admin"></div>
     </div>
 
     <script>
@@ -264,6 +288,7 @@
         let html5QrCode = null;
         let scannerRodando = false;
         let autenticado = false;
+        let tokenAdmin = "";
 
         let desenhando = false;
         let sequenciaPad = [];
@@ -274,6 +299,12 @@
         const canvas = document.getElementById('pad-canvas');
         const ctx = canvas.getContext('2d');
         const cells = Array.from(document.querySelectorAll('.pad-cell'));
+
+        function escaparTexto(texto) {
+            const div = document.createElement('div');
+            div.textContent = String(texto ?? '');
+            return div.innerHTML;
+        }
 
         function mostrarBloqueio(bloqueado) {
             const telaBloqueio = document.getElementById('tela-bloqueio');
@@ -393,6 +424,26 @@
             redesenharTraco(ultimoPontoAtual);
         });
 
+        async function autenticarNoServidor(senha) {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senha })
+            });
+
+            if (res.status === 403) {
+                mostrarBloqueio(true);
+                return false;
+            }
+
+            const data = await res.json();
+            if (data.sucesso) {
+                if (data.token) tokenAdmin = data.token;
+                return true;
+            }
+            return false;
+        }
+
         async function finalizarArrasto() {
             if (!desenhando) return;
             desenhando = false;
@@ -409,26 +460,15 @@
             if (tracoFeito === ORDEM_TRACO_DONA) {
                 await verificarStatus();
                 if (document.getElementById('tela-bloqueio').style.display !== 'block') {
-                    abrirPainelPrincipal();
+                    await abrirPainelPrincipal();
                 }
                 return;
             }
 
             try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senha: tracoFeito })
-                });
-
-                if (res.status === 403) {
-                    mostrarBloqueio(true);
-                    return;
-                }
-
-                const data = await res.json();
-                if (data.sucesso) {
-                    abrirPainelPrincipal();
+                const ok = await autenticarNoServidor(tracoFeito);
+                if (ok) {
+                    await abrirPainelPrincipal();
                     return;
                 }
             } catch (e) {}
@@ -443,20 +483,9 @@
 
         async function fazerLogin() {
             const senha = document.getElementById('senha-input').value;
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ senha })
-            });
-
-            if (res.status === 403) {
-                mostrarBloqueio(true);
-                return;
-            }
-
-            const data = await res.json();
-            if (data.sucesso) {
-                abrirPainelPrincipal();
+            const ok = await autenticarNoServidor(senha);
+            if (ok) {
+                await abrirPainelPrincipal();
             } else {
                 document.getElementById('erro-login').innerText = "Senha incorreta!";
             }
@@ -471,13 +500,66 @@
         }
 
         async function atualizarMetricasClientes() {
-            const valores = Array.from(mapaClientesLocal.values());
-            renderizarContadores(valores.length, valores.filter(q => q >= META_CORACOES).length);
+            const headers = tokenAdmin ? { 'Authorization': `Bearer ${tokenAdmin}` } : {};
+            try {
+                const res = await fetch('/api/clientes', { headers });
+                if (res.status === 403) {
+                    mostrarBloqueio(true);
+                    return;
+                }
+                if (res.ok) {
+                    const clientes = await res.json();
+                    if (Array.isArray(clientes)) {
+                        clientes.forEach(c => {
+                            if (c && c.telefone) {
+                                mapaClientesLocal.set(String(c.telefone), {
+                                    nome: c.nome || 'Cliente',
+                                    telefone: String(c.telefone),
+                                    coracoes: Number(c.coracoes || 0),
+                                    maxCoracoes: Number(c.maxCoracoes || META_CORACOES)
+                                });
+                            }
+                        });
+                        const lista = Array.from(mapaClientesLocal.values());
+                        renderizarContadores(lista.length, lista.filter(c => c.coracoes >= c.maxCoracoes).length);
+                        renderizarListaClientes(lista);
+                        return;
+                    }
+                }
+            } catch (e) {}
+
+            const listaLocal = Array.from(mapaClientesLocal.values());
+            renderizarContadores(listaLocal.length, listaLocal.filter(c => c.coracoes >= c.maxCoracoes).length);
+            renderizarListaClientes(listaLocal);
         }
 
         function renderizarContadores(total, concluidos) {
             document.getElementById('total-clientes').innerText = total;
             document.getElementById('clientes-meta').innerText = concluidos;
+        }
+
+        function renderizarListaClientes(clientes) {
+            const container = document.getElementById('lista-clientes-admin');
+            if (!container) return;
+
+            if (!clientes.length) {
+                container.innerHTML = '<p style="color:#cbb88a; font-size:13px; text-align:center;">Nenhum cliente carregado ainda.</p>';
+                return;
+            }
+
+            container.innerHTML = clientes.map(c => {
+                const coracoes = Number(c.coracoes || 0);
+                const max = Number(c.maxCoracoes || META_CORACOES);
+                return `
+                    <div class="cliente-linha">
+                        <div>
+                            <span class="cliente-linha-nome">${escaparTexto(c.nome || 'Cliente')}</span>
+                            <span class="cliente-linha-tel">${escaparTexto(c.telefone || '-')}</span>
+                        </div>
+                        <span class="cliente-linha-pts">💛 ${coracoes}/${max}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
         async function iniciarScanner() {
@@ -527,15 +609,21 @@
             }
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
+            const maxCoracoes = Number(data.maxCoracoes || META_CORACOES);
             const telFinal = String(data.telefone || tel);
 
-            mapaClientesLocal.set(telFinal, coracoes);
+            mapaClientesLocal.set(telFinal, {
+                nome: data.nome || 'Cliente',
+                telefone: telFinal,
+                coracoes,
+                maxCoracoes
+            });
             await atualizarMetricasClientes();
 
             document.getElementById('info-nome').innerText = `Cliente: ${data.nome || 'Cliente'}`;
             document.getElementById('info-tel').innerText = telFinal;
             document.getElementById('qtd-coracoes').innerText = coracoes;
-            atualizarVisualAdmin(coracoes, META_CORACOES);
+            atualizarVisualAdmin(coracoes, maxCoracoes);
 
             document.getElementById('reader').style.display = 'none';
             document.getElementById('painel-cliente').style.display = 'block';
@@ -553,12 +641,15 @@
             }
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
+            const maxCoracoes = Number(data.maxCoracoes || META_CORACOES);
+            const telKey = String(telefoneAtual);
 
-            mapaClientesLocal.set(String(telefoneAtual), coracoes);
+            const atual = mapaClientesLocal.get(telKey) || { nome: 'Cliente', telefone: telKey };
+            mapaClientesLocal.set(telKey, { ...atual, coracoes, maxCoracoes });
             await atualizarMetricasClientes();
 
             document.getElementById('qtd-coracoes').innerText = coracoes;
-            atualizarVisualAdmin(coracoes, META_CORACOES);
+            atualizarVisualAdmin(coracoes, maxCoracoes);
         }
 
         function atualizarVisualAdmin(coracoesAtuais, maxCoracoes = META_CORACOES) {
