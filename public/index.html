@@ -112,6 +112,17 @@
             font-size: 14px;
             margin-top: 10px;
         }
+        .motivo-bloqueio {
+            margin-top: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #f5e6c4;
+        }
+        .subaviso-bloqueio {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #cbb88a;
+        }
     </style>
 </head>
 <body>
@@ -120,6 +131,8 @@
         <img src="logo-brendha.jpg" alt="Studio Brendha Elias" class="logo-topo" onerror="this.style.display='none'">
         <h2 class="studio-nome">Studio Brendha Elias</h2>
         <div class="aviso-bloqueio">Acesso temporariamente suspenso.</div>
+        <div id="motivo-bloqueio" class="motivo-bloqueio" style="display:none;"></div>
+        <div id="subaviso-bloqueio" class="subaviso-bloqueio" style="display:none;"></div>
     </div>
 
     <div class="card" id="tela-cadastro">
@@ -149,16 +162,34 @@
         let intervaloAtualizacao = null;
         let siteBloqueado = false;
 
-        function aplicarEstadoBloqueio(bloqueado) {
+        function aplicarEstadoBloqueio(bloqueado, motivo = '', subaviso = '') {
             siteBloqueado = Boolean(bloqueado);
             const telaBloqueio = document.getElementById('tela-bloqueio');
             const telaCadastro = document.getElementById('tela-cadastro');
             const telaCartao = document.getElementById('tela-cartao');
+            const motivoEl = document.getElementById('motivo-bloqueio');
+            const subavisoEl = document.getElementById('subaviso-bloqueio');
 
             if (siteBloqueado) {
                 telaBloqueio.style.display = 'block';
                 telaCadastro.style.display = 'none';
                 telaCartao.style.display = 'none';
+
+                if (motivo) {
+                    motivoEl.innerText = motivo;
+                    motivoEl.style.display = 'block';
+                } else {
+                    motivoEl.innerText = '';
+                    motivoEl.style.display = 'none';
+                }
+
+                if (subaviso) {
+                    subavisoEl.innerText = subaviso;
+                    subavisoEl.style.display = 'block';
+                } else {
+                    subavisoEl.innerText = '';
+                    subavisoEl.style.display = 'none';
+                }
             } else {
                 telaBloqueio.style.display = 'none';
                 if (!telefoneClienteAtual) {
@@ -172,7 +203,7 @@
                 const res = await fetch('/api/status');
                 if (res.ok) {
                     const data = await res.json();
-                    aplicarEstadoBloqueio(data.ativo === false);
+                    aplicarEstadoBloqueio(data.ativo === false, data.motivo || '', data.subaviso || '');
                 }
             } catch (e) {}
         }
@@ -198,7 +229,8 @@
             });
 
             if (res.status === 403) {
-                aplicarEstadoBloqueio(true);
+                const errData = await res.json().catch(() => ({}));
+                aplicarEstadoBloqueio(true, errData.motivo || '', errData.subaviso || '');
                 return;
             }
 
@@ -251,7 +283,8 @@
                 try {
                     const res = await fetch(`/api/cliente/${encodeURIComponent(telefoneClienteAtual)}`);
                     if (res.status === 403) {
-                        aplicarEstadoBloqueio(true);
+                        const errData = await res.json().catch(() => ({}));
+                        aplicarEstadoBloqueio(true, errData.motivo || '', errData.subaviso || '');
                         return;
                     }
                     const data = await res.json();
