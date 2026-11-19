@@ -97,7 +97,7 @@
 
         button {
             padding: 11px 16px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             margin: 6px 0;
             cursor: pointer;
@@ -108,6 +108,7 @@
             background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
             color: #111;
             width: 100%;
+            font-size: 15px;
         }
         .btn-secundario {
             background: #25252b;
@@ -115,21 +116,38 @@
             border: 1px solid rgba(212, 175, 55, 0.4);
             width: 100%;
         }
+        .acoes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
         .btn-add {
             background: #2e7d32;
             color: #fff;
-            margin: 4px;
+            margin: 0;
         }
         .btn-rem {
             background: #c62828;
             color: #fff;
-            margin: 4px;
+            margin: 0;
+        }
+        .btn-zerar {
+            background: #8d6e00;
+            color: #fff;
+            margin: 0;
+        }
+        .btn-remover-cliente {
+            background: #7f1d1d;
+            color: #fff;
+            margin: 0;
         }
         .btn-scan {
             background: #25252b;
             color: #f5d061;
             border: 1px solid rgba(212, 175, 55, 0.45);
             width: 100%;
+            font-size: 15px;
         }
         input {
             padding: 11px 14px;
@@ -229,9 +247,11 @@
 
             <div id="grid-coracoes-admin" style="margin: 14px 0; font-size: 26px;"></div>
 
-            <div>
+            <div class="acoes-grid">
                 <button type="button" onclick="alterarCoracao('adicionar')" class="btn-add">➕ Dar Coração</button>
                 <button type="button" onclick="alterarCoracao('remover')" class="btn-rem">➖ Remover</button>
+                <button type="button" onclick="alterarCoracao('zerar')" class="btn-zerar">🔄 Zerar Corações</button>
+                <button type="button" onclick="removerClienteAtual()" class="btn-remover-cliente">🗑️ Remover Cliente</button>
             </div>
 
             <p id="msg-completo"></p>
@@ -245,6 +265,7 @@
         const ORDEM_TRACO_DONA = "1-2-3-6-9-8-7-4";
         const TEXTO_VOLTA = "Em breve nós voltamos";
         let telefoneAtual = "";
+        let nomeAtual = "Cliente";
         let html5QrCode = null;
         let scannerRodando = false;
         let autenticado = false;
@@ -523,8 +544,9 @@
             const data = await res.json();
             const coracoes = Number(data.coracoes || 0);
             const telFinal = String(data.telefone || tel);
+            nomeAtual = data.nome || 'Cliente';
 
-            document.getElementById('info-nome').innerText = `Cliente: ${data.nome || 'Cliente'}`;
+            document.getElementById('info-nome').innerText = `Cliente: ${nomeAtual}`;
             document.getElementById('info-tel').innerText = telFinal;
             document.getElementById('qtd-coracoes').innerText = coracoes;
             atualizarVisualAdmin(coracoes, META_CORACOES);
@@ -533,6 +555,11 @@
         }
 
         async function alterarCoracao(acao) {
+            if (!telefoneAtual) return;
+            if (acao === 'zerar') {
+                if (!confirm(`Zerar todos os corações de ${nomeAtual}?`)) return;
+            }
+
             const res = await fetch('/api/atualizar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -547,10 +574,29 @@
             const coracoes = Number(data.coracoes || 0);
 
             document.getElementById('qtd-coracoes').innerText = coracoes;
-            atualizarVisualAdmin(coracoes, META_CORACOES);
+            atualizarVisualAdmin(coracoes, META_CORACOES, acao === 'zerar' ? 'Corações zerados!' : '');
         }
 
-        function atualizarVisualAdmin(coracoesAtuais, maxCoracoes = META_CORACOES) {
+        async function removerClienteAtual() {
+            if (!telefoneAtual) return;
+            if (!confirm(`Tem certeza que deseja remover ${nomeAtual} (${telefoneAtual})?`)) return;
+
+            const res = await fetch(`/api/cliente/${encodeURIComponent(telefoneAtual)}`, {
+                method: 'DELETE'
+            });
+            if (res.status === 403) {
+                const d = await res.json().catch(() => ({}));
+                mostrarBloqueio(true, d.motivo || '');
+                return;
+            }
+
+            telefoneAtual = "";
+            document.getElementById('painel-cliente').style.display = 'none';
+            document.getElementById('msg-completo').innerText = "";
+            alert('Cliente removido com sucesso!');
+        }
+
+        function atualizarVisualAdmin(coracoesAtuais, maxCoracoes = META_CORACOES, avisoExtra = '') {
             let html = '';
             for (let i = 0; i < maxCoracoes; i++) {
                 if (i < coracoesAtuais) {
@@ -566,7 +612,7 @@
             if (coracoesAtuais >= maxCoracoes) {
                 msgEl.innerText = "parabéns, você completou seu cartão 🎉";
             } else {
-                msgEl.innerText = "";
+                msgEl.innerText = avisoExtra;
             }
         }
 
