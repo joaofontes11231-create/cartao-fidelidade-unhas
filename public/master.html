@@ -29,7 +29,7 @@
         input {
             width: 100%;
             padding: 12px 14px;
-            margin: 10px 0;
+            margin: 8px 0;
             border-radius: 10px;
             border: 1px solid rgba(212, 175, 55, 0.4);
             background: #0d0d10;
@@ -56,6 +56,51 @@
             background: #25252b;
             color: #f5d061;
             border: 1px solid rgba(212, 175, 55, 0.4);
+        }
+        .motivos-box {
+            background: #0d0d10;
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 12px 0;
+            text-align: left;
+        }
+        .motivos-botoes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .btn-motivo {
+            background: #1f1f26;
+            color: #f5d061;
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            padding: 9px;
+            font-size: 13px;
+        }
+        .btn-motivo.ativo {
+            background: #d4af37;
+            color: #111;
+        }
+        .aviso-vermelho {
+            color: #ef9a9a;
+            background: rgba(198, 40, 40, 0.16);
+            border: 1px solid rgba(198, 40, 40, 0.45);
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .motivo-abaixo {
+            margin-top: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #f5e6c4;
+        }
+        .subaviso-abaixo {
+            margin-top: 3px;
+            font-size: 12px;
+            color: #cbb88a;
         }
         .info-grid {
             display: grid;
@@ -151,7 +196,23 @@
             </div>
         </div>
 
+        <div class="motivos-box" id="area-motivos">
+            <div style="font-size:13px; color:#cbb88a; margin-bottom:8px;">Motivo para fechar o site (opcional):</div>
+            <div class="motivos-botoes">
+                <button type="button" class="btn-motivo" id="btn-manutencao" onclick="selecionarMotivo('Manutenção', 'Em breve será aberto')">Manutenção</button>
+                <button type="button" class="btn-motivo" id="btn-erro" onclick="selecionarMotivo('Erro no sistema', '')">Erro no sistema</button>
+            </div>
+            <input type="text" id="motivo-texto" placeholder="Ou escreva o motivo aqui..." oninput="limparSelecaoRapida()">
+        </div>
+
         <button type="button" id="btn-bloqueio" class="btn-full" onclick="alternarLicenca()">...</button>
+
+        <div id="preview-bloqueio" style="display:none;">
+            <div class="aviso-vermelho">Acesso temporariamente suspenso.</div>
+            <div id="preview-motivo" class="motivo-abaixo" style="display:none;"></div>
+            <div id="preview-subaviso" class="subaviso-abaixo" style="display:none;"></div>
+        </div>
+
         <button type="button" class="btn-atualizar btn-full" onclick="carregarPainel()">Atualizar Dados</button>
         <p id="msg-acao"></p>
 
@@ -162,11 +223,41 @@
     <script>
         let senhaSalva = '';
         let siteAtivo = true;
+        let subavisoSelecionado = '';
 
         function escaparTexto(texto) {
             const div = document.createElement('div');
             div.textContent = String(texto ?? '');
             return div.innerHTML;
+        }
+
+        function selecionarMotivo(titulo, sub) {
+            document.getElementById('motivo-texto').value = titulo;
+            subavisoSelecionado = sub;
+            document.getElementById('btn-manutencao').classList.toggle('ativo', titulo === 'Manutenção');
+            document.getElementById('btn-erro').classList.toggle('ativo', titulo === 'Erro no sistema');
+        }
+
+        function limparSelecaoRapida() {
+            subavisoSelecionado = '';
+            document.getElementById('btn-manutencao').classList.remove('ativo');
+            document.getElementById('btn-erro').classList.remove('ativo');
+        }
+
+        function atualizarPreviewBloqueio(bloqueado, motivo, subaviso) {
+            const box = document.getElementById('preview-bloqueio');
+            const mEl = document.getElementById('preview-motivo');
+            const sEl = document.getElementById('preview-subaviso');
+
+            if (!bloqueado) {
+                box.style.display = 'none';
+                return;
+            }
+            box.style.display = 'block';
+            mEl.style.display = motivo ? 'block' : 'none';
+            mEl.innerText = motivo || '';
+            sEl.style.display = subaviso ? 'block' : 'none';
+            sEl.innerText = subaviso || '';
         }
 
         async function entrar() {
@@ -202,6 +293,9 @@
                 document.getElementById('box-painel').style.display = 'block';
 
                 siteAtivo = Boolean(data.site?.ativo);
+                const motivoAtual = data.site?.motivo || '';
+                const subavisoAtual = data.site?.subaviso || '';
+
                 document.getElementById('nome-site').innerText = data.site?.nome || 'Studio Brendha Elias';
                 document.getElementById('status-conexao').innerText = data.site?.online ? 'Online' : 'Offline';
                 document.getElementById('status-licenca').innerText = siteAtivo ? 'Desbloqueado' : 'Bloqueado';
@@ -217,6 +311,7 @@
                     btn.className = 'btn-desbloquear btn-full';
                 }
 
+                atualizarPreviewBloqueio(!siteAtivo, motivoAtual, subavisoAtual);
                 renderizarClientes(Array.isArray(data.clientes) ? data.clientes : []);
             } catch (e) {
                 document.getElementById('status-conexao').innerText = 'Offline';
@@ -289,14 +384,26 @@
 
         async function alternarLicenca() {
             const msgAcao = document.getElementById('msg-acao');
+            const motivoDigitado = (document.getElementById('motivo-texto').value || '').trim();
+            const proximoAtivo = !siteAtivo;
+
             try {
                 const res = await fetch('/api/mestre/alternar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ senhaMestra: senhaSalva, ativo: !siteAtivo })
+                    body: JSON.stringify({
+                        senhaMestra: senhaSalva,
+                        ativo: proximoAtivo,
+                        motivo: proximoAtivo ? '' : motivoDigitado,
+                        subaviso: proximoAtivo ? '' : (motivoDigitado === 'Manutenção' ? 'Em breve será aberto' : subavisoSelecionado)
+                    })
                 });
                 const data = await res.json();
                 if (data.sucesso) {
+                    if (proximoAtivo) {
+                        document.getElementById('motivo-texto').value = '';
+                        limparSelecaoRapida();
+                    }
                     msgAcao.innerText = data.mensagem || 'Atualizado.';
                     await carregarPainel();
                 } else {
