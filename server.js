@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const crypto = require('crypto');
 const path = require('path');
 
 const app = express();
@@ -17,17 +16,6 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fidelidade
 mongoose.connect(MONGO_URI)
     .then(() => console.log('Banco de dados conectado com sucesso!'))
     .catch(() => console.log('Erro de conexão com o banco.'));
-
-const tokensAdmin = new Set();
-
-function autorizarAdmin(req, res, next) {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-    if (!token || !tokensAdmin.has(token)) {
-        return res.status(401).json({ sucesso: false, erro: 'Acesso não autorizado.' });
-    }
-    next();
-}
 
 // Modelo do Cliente (nunca apagado ao bloquear ou desbloquear)
 const Cliente = mongoose.model('Cliente', {
@@ -94,15 +82,13 @@ app.get('/api/status', async (req, res) => {
 app.post('/api/login', verificarLicenca, (req, res) => {
     const { senha } = req.body || {};
     if (typeof senha === 'string' && senha === SENHA_ADMIN) {
-        const token = crypto.randomBytes(24).toString('hex');
-        tokensAdmin.add(token);
-        return res.json({ sucesso: true, token });
+        return res.json({ sucesso: true });
     }
     return res.status(401).json({ sucesso: false, erro: 'Senha incorreta!' });
 });
 
-// Listar clientes para a administradora
-app.get('/api/clientes', verificarLicenca, autorizarAdmin, async (req, res) => {
+// Listar clientes para a tela de clientes
+app.get('/api/clientes', verificarLicenca, async (req, res) => {
     try {
         const clientes = await Cliente.find(
             {},
@@ -209,7 +195,7 @@ app.post('/api/mestre/alternar', autorizarMestre, async (req, res) => {
 
         if (!proximoAtivo) {
             licenca.motivo = typeof motivo === 'string' ? motivo.trim() : (licenca.motivo || '');
-            licenca.subaviso = typeof subaviso === 'string' ? subaviso.trim() : '';
+            licenca.subaviso = typeof subaviso === 'string' ? subaviso.trim() : 'Em breve nós voltamos';
         } else {
             licenca.motivo = '';
             licenca.subaviso = '';
