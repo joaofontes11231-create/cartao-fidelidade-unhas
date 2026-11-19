@@ -98,7 +98,7 @@
             color: #f5e6c4;
         }
         .subaviso-abaixo {
-            margin-top: 3px;
+            margin-top: 4px;
             font-size: 12px;
             color: #cbb88a;
         }
@@ -197,12 +197,12 @@
         </div>
 
         <div class="motivos-box" id="area-motivos">
-            <div style="font-size:13px; color:#cbb88a; margin-bottom:8px;">Motivo para fechar o site (opcional):</div>
+            <div style="font-size:13px; color:#cbb88a; margin-bottom:8px;">Descreva o motivo para bloquear:</div>
             <div class="motivos-botoes">
-                <button type="button" class="btn-motivo" id="btn-manutencao" onclick="selecionarMotivo('Manutenção', 'Em breve será aberto')">Manutenção</button>
-                <button type="button" class="btn-motivo" id="btn-erro" onclick="selecionarMotivo('Erro no sistema', '')">Erro no sistema</button>
+                <button type="button" class="btn-motivo" id="btn-manutencao" onclick="selecionarMotivo('Manutenção')">Manutenção</button>
+                <button type="button" class="btn-motivo" id="btn-erro" onclick="selecionarMotivo('Erro no sistema')">Erro no sistema</button>
             </div>
-            <input type="text" id="motivo-texto" placeholder="Ou escreva o motivo aqui..." oninput="limparSelecaoRapida()">
+            <input type="text" id="motivo-texto" placeholder="Escreva aqui o motivo do bloqueio..." oninput="limparSelecaoRapida()">
         </div>
 
         <button type="button" id="btn-bloqueio" class="btn-full" onclick="alternarLicenca()">...</button>
@@ -210,7 +210,7 @@
         <div id="preview-bloqueio" style="display:none;">
             <div class="aviso-vermelho">Acesso temporariamente suspenso.</div>
             <div id="preview-motivo" class="motivo-abaixo" style="display:none;"></div>
-            <div id="preview-subaviso" class="subaviso-abaixo" style="display:none;"></div>
+            <div id="preview-subaviso" class="subaviso-abaixo">Em breve nós voltamos</div>
         </div>
 
         <button type="button" class="btn-atualizar btn-full" onclick="carregarPainel()">Atualizar Dados</button>
@@ -221,9 +221,9 @@
     </div>
 
     <script>
+        const TEXTO_VOLTA = 'Em breve nós voltamos';
         let senhaSalva = '';
         let siteAtivo = true;
-        let subavisoSelecionado = '';
 
         function escaparTexto(texto) {
             const div = document.createElement('div');
@@ -231,20 +231,18 @@
             return div.innerHTML;
         }
 
-        function selecionarMotivo(titulo, sub) {
+        function selecionarMotivo(titulo) {
             document.getElementById('motivo-texto').value = titulo;
-            subavisoSelecionado = sub;
             document.getElementById('btn-manutencao').classList.toggle('ativo', titulo === 'Manutenção');
             document.getElementById('btn-erro').classList.toggle('ativo', titulo === 'Erro no sistema');
         }
 
         function limparSelecaoRapida() {
-            subavisoSelecionado = '';
             document.getElementById('btn-manutencao').classList.remove('ativo');
             document.getElementById('btn-erro').classList.remove('ativo');
         }
 
-        function atualizarPreviewBloqueio(bloqueado, motivo, subaviso) {
+        function atualizarPreviewBloqueio(bloqueado, motivo) {
             const box = document.getElementById('preview-bloqueio');
             const mEl = document.getElementById('preview-motivo');
             const sEl = document.getElementById('preview-subaviso');
@@ -256,8 +254,7 @@
             box.style.display = 'block';
             mEl.style.display = motivo ? 'block' : 'none';
             mEl.innerText = motivo || '';
-            sEl.style.display = subaviso ? 'block' : 'none';
-            sEl.innerText = subaviso || '';
+            sEl.innerText = TEXTO_VOLTA;
         }
 
         async function entrar() {
@@ -294,7 +291,6 @@
 
                 siteAtivo = Boolean(data.site?.ativo);
                 const motivoAtual = data.site?.motivo || '';
-                const subavisoAtual = data.site?.subaviso || '';
 
                 document.getElementById('nome-site').innerText = data.site?.nome || 'Studio Brendha Elias';
                 document.getElementById('status-conexao').innerText = data.site?.online ? 'Online' : 'Offline';
@@ -311,7 +307,7 @@
                     btn.className = 'btn-desbloquear btn-full';
                 }
 
-                atualizarPreviewBloqueio(!siteAtivo, motivoAtual, subavisoAtual);
+                atualizarPreviewBloqueio(!siteAtivo, motivoAtual);
                 renderizarClientes(Array.isArray(data.clientes) ? data.clientes : []);
             } catch (e) {
                 document.getElementById('status-conexao').innerText = 'Offline';
@@ -395,7 +391,7 @@
                         senhaMestra: senhaSalva,
                         ativo: proximoAtivo,
                         motivo: proximoAtivo ? '' : motivoDigitado,
-                        subaviso: proximoAtivo ? '' : (motivoDigitado === 'Manutenção' ? 'Em breve será aberto' : subavisoSelecionado)
+                        subaviso: proximoAtivo ? '' : TEXTO_VOLTA
                     })
                 });
                 const data = await res.json();
