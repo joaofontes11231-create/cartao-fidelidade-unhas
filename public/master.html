@@ -21,7 +21,7 @@
             padding: 24px 20px;
             border-radius: 18px;
             width: 100%;
-            max-width: 440px;
+            max-width: 460px;
             margin: 16px auto;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
         }
@@ -38,15 +38,14 @@
             outline: none;
         }
         button {
-            width: 100%;
-            padding: 12px 16px;
-            margin-top: 8px;
+            padding: 11px 14px;
             border: none;
             border-radius: 10px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
         }
+        .btn-full { width: 100%; margin-top: 8px; font-size: 15px; padding: 12px; }
         .btn-ouro {
             background: linear-gradient(135deg, #d4af37, #f5d061, #b88b1e);
             color: #111;
@@ -85,23 +84,34 @@
         .lista-clientes {
             margin-top: 12px;
             text-align: left;
-            max-height: 280px;
+            max-height: 360px;
             overflow-y: auto;
         }
-        .cliente-item {
+        .cliente-card {
             background: #0d0d10;
             border: 1px solid rgba(212, 175, 55, 0.22);
-            border-radius: 10px;
-            padding: 10px 12px;
-            margin-bottom: 8px;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .cliente-topo {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 8px;
+            margin-bottom: 8px;
         }
         .cliente-nome { font-weight: bold; color: #fff; font-size: 14px; display: block; }
         .cliente-tel { color: #cbb88a; font-size: 12px; display: block; }
         .cliente-coracoes { color: #f5d061; font-weight: bold; font-size: 14px; white-space: nowrap; }
+        .cliente-acoes {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .btn-add { background: #2e7d32; color: #fff; padding: 8px; font-size: 12px; }
+        .btn-rem { background: #8d6e00; color: #fff; padding: 8px; font-size: 12px; }
+        .btn-del { background: #c62828; color: #fff; padding: 8px; font-size: 12px; }
         #msg-login, #msg-acao {
             margin-top: 10px;
             font-size: 14px;
@@ -115,7 +125,7 @@
     <div class="box" id="box-login">
         <h2>Acesso Master</h2>
         <input type="password" id="senha-mestra" placeholder="Senha do proprietário">
-        <button type="button" class="btn-ouro" onclick="entrar()">Entrar</button>
+        <button type="button" class="btn-ouro btn-full" onclick="entrar()">Entrar</button>
         <p id="msg-login"></p>
     </div>
 
@@ -141,8 +151,8 @@
             </div>
         </div>
 
-        <button type="button" id="btn-bloqueio" onclick="alternarLicenca()">...</button>
-        <button type="button" class="btn-atualizar" onclick="carregarPainel()">Atualizar Dados</button>
+        <button type="button" id="btn-bloqueio" class="btn-full" onclick="alternarLicenca()">...</button>
+        <button type="button" class="btn-atualizar btn-full" onclick="carregarPainel()">Atualizar Dados</button>
         <p id="msg-acao"></p>
 
         <h3 style="margin-top:18px; font-size:17px;">Clientes</h3>
@@ -201,10 +211,10 @@
                 const btn = document.getElementById('btn-bloqueio');
                 if (siteAtivo) {
                     btn.innerText = 'Bloquear Site';
-                    btn.className = 'btn-bloquear';
+                    btn.className = 'btn-bloquear btn-full';
                 } else {
                     btn.innerText = 'Desbloquear Site';
-                    btn.className = 'btn-desbloquear';
+                    btn.className = 'btn-desbloquear btn-full';
                 }
 
                 renderizarClientes(Array.isArray(data.clientes) ? data.clientes : []);
@@ -221,18 +231,60 @@
             }
 
             container.innerHTML = clientes.map(c => {
+                const nome = String(c.nome || 'Cliente');
+                const tel = String(c.telefone || '');
                 const coracoes = Number(c.coracoes || 0);
                 const max = Number(c.maxCoracoes || 7);
+
                 return `
-                    <div class="cliente-item">
-                        <div>
-                            <span class="cliente-nome">${escaparTexto(c.nome || 'Cliente')}</span>
-                            <span class="cliente-tel">${escaparTexto(c.telefone || '-')}</span>
+                    <div class="cliente-card">
+                        <div class="cliente-topo">
+                            <div>
+                                <span class="cliente-nome">${escaparTexto(nome)}</span>
+                                <span class="cliente-tel">${escaparTexto(tel)}</span>
+                            </div>
+                            <span class="cliente-coracoes">💛 ${coracoes}/${max}</span>
                         </div>
-                        <span class="cliente-coracoes">💛 ${coracoes}/${max}</span>
+                        <div class="cliente-acoes">
+                            <button type="button" class="btn-add" data-tel="${escaparTexto(tel)}" data-acao="adicionar">+ Coração</button>
+                            <button type="button" class="btn-rem" data-tel="${escaparTexto(tel)}" data-acao="remover">- Coração</button>
+                            <button type="button" class="btn-del" data-tel="${escaparTexto(tel)}" data-nome="${escaparTexto(nome)}" data-acao="deletar">Deletar</button>
+                        </div>
                     </div>
                 `;
             }).join('');
+
+            container.querySelectorAll('button[data-acao]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const acao = btn.dataset.acao;
+                    const tel = btn.dataset.tel;
+                    const nome = btn.dataset.nome || 'este cliente';
+                    if (acao === 'deletar') {
+                        if (!confirm(`Deletar ${nome} (${tel})?`)) return;
+                    }
+                    manipularCliente(tel, acao);
+                });
+            });
+        }
+
+        async function manipularCliente(telefone, acao) {
+            const msgAcao = document.getElementById('msg-acao');
+            try {
+                const res = await fetch('/api/mestre/cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senhaMestra: senhaSalva, telefone, acao })
+                });
+                const data = await res.json();
+                if (data.sucesso) {
+                    msgAcao.innerText = data.mensagem || 'Salvo.';
+                    await carregarPainel();
+                } else {
+                    msgAcao.innerText = data.erro || 'Erro na ação.';
+                }
+            } catch (e) {
+                msgAcao.innerText = 'Falha na comunicação.';
+            }
         }
 
         async function alternarLicenca() {
